@@ -1,5 +1,8 @@
 # TODO List
 
+> **Last Verified:** 2025-12-20  
+> **Status:** All v0.0.5.1 completed items verified ✅
+
 ## Version 0.0.5.1 (Current)
 
 ### Completed
@@ -88,40 +91,40 @@
 ## Version 0.0.6 (Next Release)
 
 ### Medium Priority
-- [ ] OCR training on Game Boy font samples (requires training data)
-- [ ] Enhanced logging and analytics
+- [ ] OCR training on Game Boy font samples (requires training data) ❌ NOT IMPLEMENTED
+- [ ] Enhanced logging and analytics ❌ NOT IMPLEMENTED
   - [ ] Performance metrics tracking
   - [ ] Cache hit rate monitoring
   - [ ] LLM call statistics
 
 ### Low Priority
-- [ ] Visual state analysis
-  - [x] Detect visual patterns (dialogue boxes) ✅ PARTIALLY COMPLETE
+- [ ] Visual state analysis ⚠️ PARTIALLY IMPLEMENTED
+  - [x] Detect visual patterns (dialogue boxes) ✅ VERIFIED (detect_dialog_box_visually)
   - [ ] Detect visual patterns (menus, battles, overworld) - dialogue only done
-  - [ ] Object detection (NPCs, items, Pokemon)
-  - [ ] Screen transition detection
-- [ ] Additional performance optimizations
+  - [ ] Object detection (NPCs, items, Pokemon) ❌ NOT IMPLEMENTED
+  - [ ] Screen transition detection ❌ NOT IMPLEMENTED
+- [ ] Additional performance optimizations ❌ NOT IMPLEMENTED
   - [ ] Parallel OCR processing
   - [ ] Batch LLM requests when possible
 
 ## Future Versions
 
 ### Version 0.1.0
-- [x] Complete memory reading implementation ✅ MOSTLY COMPLETE (basic features done)
-- [x] Full game state awareness ✅ PARTIALLY COMPLETE (has memory reading, OCR, visual detection)
-- [x] Goal-oriented agent behavior ✅ COMPLETE (AgentStrategy with goals)
-- [ ] Progress tracking (badges, Pokemon caught, etc.)
+- [x] Complete memory reading implementation ⚠️ MOSTLY COMPLETE (basic features done)
+- [x] Full game state awareness ⚠️ PARTIALLY COMPLETE (has memory reading, OCR, visual detection)
+- [x] Goal-oriented agent behavior ✅ VERIFIED (AgentStrategy with goals)
+- [ ] Progress tracking (badges, Pokemon caught, etc.) ❌ NOT IMPLEMENTED
 
 ### Version 0.2.0
-- [x] Visual analysis integration ✅ PARTIALLY COMPLETE (dialogue detection done)
-- [x] Advanced strategy system ✅ PARTIALLY COMPLETE (basic strategy exists)
-- [ ] Multi-objective planning
-- [x] Performance optimizations ✅ PARTIALLY COMPLETE (caching exists, more needed)
+- [x] Visual analysis integration ⚠️ PARTIALLY COMPLETE (dialogue detection only)
+- [x] Advanced strategy system ⚠️ PARTIALLY COMPLETE (basic strategy exists)
+- [ ] Multi-objective planning ❌ NOT IMPLEMENTED
+- [x] Performance optimizations ⚠️ PARTIALLY COMPLETE (caching exists, but more needed)
 
 ### Version 1.0.0
-- [ ] Stable, production-ready agent
-- [ ] Complete documentation
-- [x] Comprehensive testing (test suite added in v0.0.3)
+- [ ] Stable, production-ready agent ⚠️ IN PROGRESS
+- [x] Complete documentation ✅ VERIFIED (docs/ directory has comprehensive files)
+- [x] Comprehensive testing (test suite added in v0.0.3) ✅ VERIFIED
 - [ ] Performance benchmarks
 
 ## Completed (v0.0.1)
