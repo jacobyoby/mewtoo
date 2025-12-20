@@ -1,0 +1,121 @@
+# Mewtwo Configuration File
+# Version: 0.0.5.1
+
+# Active Profile (aggressive, conservative, balanced, or custom)
+# Profiles override default strategy settings
+active_profile: "balanced"
+
+# Profile Definitions
+profiles:
+  # Aggressive profile: Fast progress, less exploration, goal-focused
+  aggressive:
+    exploration_rate: 0.1  # 10% exploration, 90% goal-focused
+    goal_check_interval: 3  # Check goals more frequently
+    max_tokens: 8  # Faster responses
+    cache_max_size: 150  # Larger cache for faster decisions
+    frames_per_step: 2  # Faster gameplay
+    
+  # Conservative profile: Careful exploration, more thorough
+  conservative:
+    exploration_rate: 0.5  # 50% exploration, 50% goal-focused
+    goal_check_interval: 8  # Check goals less frequently
+    max_tokens: 15  # More thoughtful responses
+    cache_max_size: 75  # Smaller cache, more LLM calls
+    frames_per_step: 4  # Slower, more careful gameplay
+    
+  # Balanced profile: Default balanced approach
+  balanced:
+    exploration_rate: 0.3  # 30% exploration, 70% goal-focused
+    goal_check_interval: 5  # Standard goal checking
+    max_tokens: 10  # Standard token limit
+    cache_max_size: 100  # Standard cache size
+    frames_per_step: 3  # Standard frame rate
+
+# Agent Configuration
+agent:
+  # Maximum action history to keep (reduces prompt size)
+  max_history: 5
+  
+  # Enable action caching (reduces LLM calls)
+  use_cache: true
+  
+  # Enable goal-oriented strategy
+  use_strategy: true
+  
+  # Check goal completion every N steps (higher = less frequent)
+  goal_check_interval: 5
+
+# Strategy Configuration
+strategy:
+  # Exploration rate (0.0 to 1.0)
+  # 0.0 = always follow goals, 1.0 = always explore randomly
+  exploration_rate: 0.3
+  
+  # Maximum recent events to track
+  max_recent_events: 10
+
+# LLM Configuration
+llm:
+  # Maximum tokens to generate (lower = faster responses)
+  max_tokens: 10
+  
+  # Default model for Ollama
+  ollama_model: "llama3.2"
+  
+  # Default model for Claude
+  claude_model: "claude-3-5-sonnet-20241022"
+
+# OCR Configuration
+ocr:
+  # Enable OCR (disable for faster performance)
+  enabled: true
+  
+  # Run OCR every N frames (higher = less frequent checks)
+  interval: 50
+  
+  # Scale factor for OCR preprocessing (higher = better OCR accuracy but slower)
+  # Recommended: 6-8 for headless mode, 4-6 for display mode
+  # Game Boy native is 160x144, so scale_factor=6 gives 960x864
+  scale_factor: 6
+
+# Memory Reading Configuration
+memory:
+  # Check memory every N steps (higher = less frequent checks)
+  check_interval: 3
+  
+  # Enable memory reading
+  enabled: true
+
+# Performance Configuration
+performance:
+  # Frames to tick per step (lower = faster)
+  frames_per_step: 3
+  
+  # Fast mode (disables OCR, reduces checks)
+  fast_mode: false
+  
+  # Cache size for action cache
+  cache_max_size: 100
+
+# Logging Configuration
+logging:
+  # Directory for log files
+  log_dir: "logs"
+  
+  # Auto-generate log files
+  auto_log: true
+
+# Game Configuration
+game:
+  # Default number of steps
+  default_steps: 100
+  
+  # Enable display window
+  display: false
+  
+  # Enable sound
+  sound: false
+  
+  # Run in headless mode
+  headless: false
+

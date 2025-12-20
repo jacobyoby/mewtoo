@@ -1,805 +1,441 @@
-# main.py
-# This script allows the user to choose which script to run.
+"""Main entry point for Mewtwo.
+
+Version: 0.0.5.1
+"""
+import argparse
 import os
 import sys
 import json
-from logo import print_logo, version
-from colorama import Fore, Style, init
-import locale
-import platform
-import requests
-import subprocess
-from config import get_config, force_update_config
-import shutil
-import re
-from utils import get_user_documents_path  
+from pathlib import Path
+from typing import Optional
+from datetime import datetime
+from dotenv import load_dotenv
 
-# Add these imports for Arabic support
-try:
-    import arabic_reshaper
-    from bidi.algorithm import get_display
-except ImportError:
-    arabic_reshaper = None
-    get_display = None
+from pyboy import PyBoy
+from llm_provider import OllamaProvider, ClaudeProvider, LLMProvider
+from game_state import GameState
+from pokemon_agent import PokemonAgent
+from config import setup_tesseract, get_config
 
-# Only import windll on Windows systems
-if platform.system() == 'Windows':
-    import ctypes
-    # Only import windll on Windows systems
-    from ctypes import windll
 
-# Initialize colorama
-init()
-
-# Define emoji and color constants
-EMOJI = {
-    "FILE": "📄",
-    "BACKUP": "💾",
-    "SUCCESS": "✅",
-    "ERROR": "❌",
-    "INFO": "ℹ️",
-    "RESET": "🔄",
-    "MENU": "📋",
-    "ARROW": "➜",
-    "LANG": "🌐",
-    "UPDATE": "🔄",
-    "ADMIN": "🔐",
-    "AIRDROP": "💰",
-    "ROCKET": "🚀",
-    "STAR": "⭐",
-    "SUN": "🌟",
-    "CONTRIBUTE": "🤝",
-    "SETTINGS": "⚙️"
-}
-
-# Function to check if running as frozen executable
-def is_frozen():
-    """Check if the script is running as a frozen executable."""
-    return getattr(sys, 'frozen', False)
-
-# Function to check admin privileges (Windows only)
-def is_admin():
-    """Check if the script is running with admin privileges (Windows only)."""
-    if platform.system() == 'Windows':
-        try:
-            return ctypes.windll.shell32.IsUserAnAdmin() != 0
-        except Exception:
-            return False
-    # Always return True for non-Windows to avoid changing behavior
-    return True
-
-# Function to restart with admin privileges
-def run_as_admin():
-    """Restart the current script with admin privileges (Windows only)."""
-    if platform.system() != 'Windows':
-        return False
-        
-    try:
-        args = [sys.executable] + sys.argv
-        
-        # Request elevation via ShellExecute
-        print(f"{Fore.YELLOW}{EMOJI['ADMIN']} Requesting administrator privileges...{Style.RESET_ALL}")
-        ctypes.windll.shell32.ShellExecuteW(None, "runas", args[0], " ".join('"' + arg + '"' for arg in args[1:]), None, 1)
-        return True
-    except Exception as e:
-        print(f"{Fore.RED}{EMOJI['ERROR']} Failed to restart with admin privileges: {e}{Style.RESET_ALL}")
-        return False
-
-class Translator:
-    def __init__(self):
-        self.translations = {}
-        self.config = get_config()
-        
-        # Create language cache directory if it doesn't exist
-        if self.config and self.config.has_section('Language'):
-            self.language_cache_dir = self.config.get('Language', 'language_cache_dir')
-            os.makedirs(self.language_cache_dir, exist_ok=True)
-        else:
-            self.language_cache_dir = None
-        
-        # Set fallback language from config if available
-        self.fallback_language = 'en'
-        if self.config and self.config.has_section('Language') and self.config.has_option('Language', 'fallback_language'):
-            self.fallback_language = self.config.get('Language', 'fallback_language')
-        
-        # Load saved language from config if available, otherwise detect system language
-        if self.config and self.config.has_section('Language') and self.config.has_option('Language', 'current_language'):
-            saved_language = self.config.get('Language', 'current_language')
-            if saved_language and saved_language.strip():
-                self.current_language = saved_language
-            else:
-                self.current_language = self.detect_system_language()
-                # Save detected language to config
-                if self.config.has_section('Language'):
-                    self.config.set('Language', 'current_language', self.current_language)
-                    config_dir = os.path.join(get_user_documents_path(), ".cursor-free-vip")
-                    config_file = os.path.join(config_dir, "config.ini")
-                    with open(config_file, 'w', encoding='utf-8') as f:
-                        self.config.write(f)
-        else:
-            self.current_language = self.detect_system_language()
-        
-        self.load_translations()
+def create_llm_provider(provider: str, model: Optional[str] = None, config=None) -> LLMProvider:
+    """Create LLM provider based on configuration.
     
-    def detect_system_language(self):
-        """Detect system language and return corresponding language code"""
-        try:
-            system = platform.system()
-            
-            if system == 'Windows':
-                return self._detect_windows_language()
-            else:
-                return self._detect_unix_language()
-                
-        except Exception as e:
-            print(f"{Fore.YELLOW}{EMOJI['INFO']} Failed to detect system language: {e}{Style.RESET_ALL}")
-            return 'en'
+    Args:
+        provider: Provider name ('ollama' or 'claude')
+        model: Optional model name
+        config: Optional Config instance (uses global config if not provided)
     
-    def _detect_windows_language(self):
-        """Detect language on Windows systems"""
-        try:
-            # Ensure we are on Windows
-            if platform.system() != 'Windows':
-                return 'en'
-                
-            # Get keyboard layout
-            user32 = ctypes.windll.user32
-            hwnd = user32.GetForegroundWindow()
-            threadid = user32.GetWindowThreadProcessId(hwnd, 0)
-            layout_id = user32.GetKeyboardLayout(threadid) & 0xFFFF
-            
-            # Map language ID to our language codes using match-case
-            match layout_id:
-                case 0x0409:
-                    return 'en'      # English
-                case 0x0404:
-                    return 'zh_tw'   # Traditional Chinese
-                case 0x0804:
-                    return 'zh_cn'   # Simplified Chinese
-                case 0x0422:
-                    return 'vi'      # Vietnamese
-                case 0x0419:
-                    return 'ru'      # Russian
-                case 0x0415:
-                    return 'tr'      # Turkish
-                case 0x0402:
-                    return 'bg'      # Bulgarian
-                case 0x0401:
-                    return 'ar'      # Arabic
-                case _:
-                    return 'en'       # Default to English
-        except:
-            return self._detect_unix_language()
-    
-    def _detect_unix_language(self):
-        """Detect language on Unix-like systems (Linux, macOS)"""
-        try:
-            # Get the system locale
-            locale.setlocale(locale.LC_ALL, '')
-            system_locale = locale.getlocale()[0]
-            if not system_locale:
-                return 'en'
-            
-            system_locale = system_locale.lower()
-            
-            # Map locale to our language codes using match-case
-            match system_locale:
-                case s if s.startswith('zh_tw') or s.startswith('zh_hk'):
-                    return 'zh_tw'
-                case s if s.startswith('zh_cn'):
-                    return 'zh_cn'
-                case s if s.startswith('en'):
-                    return 'en'
-                case s if s.startswith('vi'):
-                    return 'vi'
-                case s if s.startswith('nl'):
-                    return 'nl'
-                case s if s.startswith('de'):
-                    return 'de'
-                case s if s.startswith('fr'):
-                    return 'fr'
-                case s if s.startswith('pt'):
-                    return 'pt'
-                case s if s.startswith('ru'):
-                    return 'ru'
-                case s if s.startswith('tr'):
-                    return 'tr'
-                case s if s.startswith('bg'):
-                    return 'bg'
-                case s if s.startswith('ar'):
-                    return 'ar'
-                case _:
-                    # Try to get language from LANG environment variable as fallback
-                    env_lang = os.getenv('LANG', '').lower()
-                    match env_lang:
-                        case s if 'tw' in s or 'hk' in s:
-                            return 'zh_tw'
-                        case s if 'cn' in s:
-                            return 'zh_cn'
-                        case s if 'vi' in s:
-                            return 'vi'
-                        case s if 'nl' in s:
-                            return 'nl'
-                        case s if 'de' in s:
-                            return 'de'
-                        case s if 'fr' in s:
-                            return 'fr'
-                        case s if 'pt' in s:
-                            return 'pt'
-                        case s if 'ru' in s:
-                            return 'ru'
-                        case s if 'tr' in s:
-                            return 'tr'
-                        case s if 'bg' in s:
-                            return 'bg'
-                        case s if 'ar' in s:
-                            return 'ar'
-                        case _:
-                            return 'en'
-        except:
-            return 'en'
-    
-    def download_language_file(self, lang_code):
-        """Method kept for compatibility but now returns False as language files are integrated"""
-        print(f"{Fore.YELLOW}{EMOJI['INFO']} Languages are now integrated into the package, no need to download.{Style.RESET_ALL}")
-        return False
-            
-    def load_translations(self):
-        """Load all available translations from the integrated package"""
-        try:
-            # Collection of languages we've successfully loaded
-            loaded_languages = set()
-            
-            locales_paths = []
-            
-            # Check for PyInstaller bundle first
-            if hasattr(sys, '_MEIPASS'):
-                locales_paths.append(os.path.join(sys._MEIPASS, 'locales'))
-            
-            # Check script directory next
-            script_dir = os.path.dirname(os.path.abspath(__file__))
-            locales_paths.append(os.path.join(script_dir, 'locales'))
-            
-            # Also check current working directory
-            locales_paths.append(os.path.join(os.getcwd(), 'locales'))
-            
-            for locales_dir in locales_paths:
-                if os.path.exists(locales_dir) and os.path.isdir(locales_dir):
-                    for file in os.listdir(locales_dir):
-                        if file.endswith('.json'):
-                            lang_code = file[:-5]  # Remove .json
-                            try:
-                                with open(os.path.join(locales_dir, file), 'r', encoding='utf-8') as f:
-                                    self.translations[lang_code] = json.load(f)
-                                    loaded_languages.add(lang_code)
-                                    loaded_any = True
-                            except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                                print(f"{Fore.RED}{EMOJI['ERROR']} Error loading {file}: {e}{Style.RESET_ALL}")
-                                continue
-
-        except Exception as e:
-            print(f"{Fore.RED}{EMOJI['ERROR']} Failed to load translations: {e}{Style.RESET_ALL}")
-            # Create at least minimal English translations for basic functionality
-            self.translations['en'] = {"menu": {"title": "Menu", "exit": "Exit", "invalid_choice": "Invalid choice"}}
-    
-    def fix_arabic(self, text):
-        if self.current_language == 'ar' and arabic_reshaper and get_display:
-            try:
-                reshaped_text = arabic_reshaper.reshape(text)
-                bidi_text = get_display(reshaped_text)
-                return bidi_text
-            except Exception:
-                return text
-        return text
-
-    def get(self, key, **kwargs):
-        """Get translated text with fallback support"""
-        try:
-            # Try current language
-            result = self._get_translation(self.current_language, key)
-            if result == key and self.current_language != self.fallback_language:
-                # Try fallback language if translation not found
-                result = self._get_translation(self.fallback_language, key)
-            formatted = result.format(**kwargs) if kwargs else result
-            return self.fix_arabic(formatted)
-        except Exception:
-            return key
-    
-    def _get_translation(self, lang_code, key):
-        """Get translation for a specific language"""
-        try:
-            keys = key.split('.')
-            value = self.translations.get(lang_code, {})
-            for k in keys:
-                if isinstance(value, dict):
-                    value = value.get(k, key)
-                else:
-                    return key
-            return value
-        except Exception:
-            return key
-    
-    def set_language(self, lang_code):
-        """Set current language with validation"""
-        if lang_code in self.translations:
-            self.current_language = lang_code
-            return True
-        return False
-
-    def get_available_languages(self):
-        """Get list of available languages"""
-        # Get currently loaded languages
-        available_languages = list(self.translations.keys())
-        
-        # Sort languages alphabetically for better display
-        return sorted(available_languages)
-
-# Create translator instance
-translator = Translator()
-
-def print_menu():
-    """Print menu options"""
-    try:
+    Returns:
+        LLMProvider instance
+    """
+    if config is None:
         config = get_config()
-        if config.getboolean('Utils', 'enabled_account_info'):
-            import cursor_acc_info
-            cursor_acc_info.display_account_info(translator)
-    except Exception as e:
-        print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.account_info_error', error=str(e))}{Style.RESET_ALL}")
     
-    print(f"\n{Fore.CYAN}{EMOJI['MENU']} {translator.get('menu.title')}:{Style.RESET_ALL}")
-    if translator.current_language == 'zh_cn' or translator.current_language == 'zh_tw':
-        print(f"{Fore.YELLOW}{'─' * 70}{Style.RESET_ALL}")
+    llm_config = config.get_llm_config()
+    
+    if provider.lower() == "ollama":
+        default_model = model or llm_config.get("ollama_model", "llama3.2")
+        return OllamaProvider(model=default_model)
+    elif provider.lower() == "claude":
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY environment variable not set")
+        default_model = model or llm_config.get("claude_model", "claude-3-5-sonnet-20241022")
+        return ClaudeProvider(api_key=api_key, model=default_model)
     else:
-        print(f"{Fore.YELLOW}{'─' * 110}{Style.RESET_ALL}")
-    
-    # Get terminal width
-    try:
-        terminal_width = shutil.get_terminal_size().columns
-    except:
-        terminal_width = 80  # Default width
-    
-    # Define all menu items
-    menu_items = {
-        0: f"{Fore.GREEN}0{Style.RESET_ALL}. {EMOJI['ERROR']} {translator.get('menu.exit')}",
-        1: f"{Fore.GREEN}1{Style.RESET_ALL}. {EMOJI['RESET']} {translator.get('menu.reset')}",
-        2: f"{Fore.GREEN}2{Style.RESET_ALL}. {EMOJI['SUCCESS']} {translator.get('menu.register_manual')}",
-        3: f"{Fore.GREEN}3{Style.RESET_ALL}. {EMOJI['ERROR']} {translator.get('menu.quit')}",
-        4: f"{Fore.GREEN}4{Style.RESET_ALL}. {EMOJI['LANG']} {translator.get('menu.select_language')}",
-        5: f"{Fore.GREEN}5{Style.RESET_ALL}. {EMOJI['SUN']} {translator.get('menu.register_google')}",
-        6: f"{Fore.GREEN}6{Style.RESET_ALL}. {EMOJI['STAR']} {translator.get('menu.register_github')}",
-        7: f"{Fore.GREEN}7{Style.RESET_ALL}. {EMOJI['UPDATE']} {translator.get('menu.disable_auto_update')}",
-        8: f"{Fore.GREEN}8{Style.RESET_ALL}. {EMOJI['RESET']} {translator.get('menu.totally_reset')}",
-        9: f"{Fore.GREEN}9{Style.RESET_ALL}. {EMOJI['CONTRIBUTE']} {translator.get('menu.contribute')}",
-        10: f"{Fore.GREEN}10{Style.RESET_ALL}. {EMOJI['SETTINGS']}  {translator.get('menu.config')}",
-        11: f"{Fore.GREEN}11{Style.RESET_ALL}. {EMOJI['UPDATE']}  {translator.get('menu.bypass_version_check')}",
-        12: f"{Fore.GREEN}12{Style.RESET_ALL}. {EMOJI['UPDATE']}  {translator.get('menu.check_user_authorized')}",
-        13: f"{Fore.GREEN}13{Style.RESET_ALL}. {EMOJI['UPDATE']}  {translator.get('menu.bypass_token_limit')}",
-        14: f"{Fore.GREEN}14{Style.RESET_ALL}. {EMOJI['BACKUP']}  {translator.get('menu.restore_machine_id')}",
-        15: f"{Fore.GREEN}15{Style.RESET_ALL}. {EMOJI['ERROR']}  {translator.get('menu.delete_google_account')}",
-        16: f"{Fore.GREEN}16{Style.RESET_ALL}. {EMOJI['SETTINGS']}  {translator.get('menu.select_chrome_profile')}",
-        17: f"{Fore.GREEN}17{Style.RESET_ALL}. {EMOJI['UPDATE']}  {translator.get('menu.manual_custom_auth')}"
-    }
-    
-    # Automatically calculate the number of menu items in the left and right columns
-    total_items = len(menu_items)
-    left_column_count = (total_items + 1) // 2  # The number of options displayed on the left (rounded up)
-    
-    # Build left and right columns of menus
-    sorted_indices = sorted(menu_items.keys())
-    left_menu = [menu_items[i] for i in sorted_indices[:left_column_count]]
-    right_menu = [menu_items[i] for i in sorted_indices[left_column_count:]]
-    
-    # Calculate the maximum display width of left menu items
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    
-    def get_display_width(s):
-        """Calculate the display width of a string, considering Chinese characters and emojis"""
-        # Remove ANSI color codes
-        clean_s = ansi_escape.sub('', s)
-        width = 0
-        for c in clean_s:
-            # Chinese characters and some emojis occupy two character widths
-            if ord(c) > 127:
-                width += 2
-            else:
-                width += 1
-        return width
-    
-    max_left_width = 0
-    for item in left_menu:
-        width = get_display_width(item)
-        max_left_width = max(max_left_width, width)
-    
-    # Set the starting position of right menu
-    fixed_spacing = 4  # Fixed spacing
-    right_start = max_left_width + fixed_spacing
-    
-    # Calculate the number of spaces needed for right menu items
-    spaces_list = []
-    for i in range(len(left_menu)):
-        if i < len(left_menu):
-            left_item = left_menu[i]
-            left_width = get_display_width(left_item)
-            spaces = right_start - left_width
-            spaces_list.append(spaces)
-    
-    # Print menu items
-    max_rows = max(len(left_menu), len(right_menu))
-    
-    for i in range(max_rows):
-        # Print left menu items
-        if i < len(left_menu):
-            left_item = left_menu[i]
-            print(left_item, end='')
-            
-            # Use pre-calculated spaces
-            spaces = spaces_list[i]
-        else:
-            # If left side has no items, print only spaces
-            spaces = right_start
-            print('', end='')
-        
-        # Print right menu items
-        if i < len(right_menu):
-            print(' ' * spaces + right_menu[i])
-        else:
-            print()  # Change line
-    if translator.current_language == 'zh_cn' or translator.current_language == 'zh_tw':
-        print(f"{Fore.YELLOW}{'─' * 70}{Style.RESET_ALL}")
-    else:
-        print(f"{Fore.YELLOW}{'─' * 110}{Style.RESET_ALL}")
+        raise ValueError(f"Unknown provider: {provider}")
 
-def select_language():
-    """Language selection menu"""
-    print(f"\n{Fore.CYAN}{EMOJI['LANG']} {translator.get('menu.select_language')}:{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}{'─' * 40}{Style.RESET_ALL}")
-    
-    # Get available languages either from local directory or GitHub
-    languages = translator.get_available_languages()
-    languages_count = len(languages)
-    
-    # Display all available languages with proper indices
-    for i, lang in enumerate(languages):
-        lang_name = translator.get(f"languages.{lang}", fallback=lang)
-        print(f"{Fore.GREEN}{i}{Style.RESET_ALL}. {lang_name}")
-    
-    try:
-        # Use the actual number of languages in the prompt
-        choice = input(f"\n{EMOJI['ARROW']} {Fore.CYAN}{translator.get('menu.input_choice', choices=f'0-{languages_count-1}')}: {Style.RESET_ALL}")
-        
-        if choice.isdigit() and 0 <= int(choice) < languages_count:
-            selected_language = languages[int(choice)]
-            translator.set_language(selected_language)
-            
-            # Save selected language to config
-            config = get_config()
-            if config and config.has_section('Language'):
-                config.set('Language', 'current_language', selected_language)
-                
-                # Get config path from user documents
-                config_dir = os.path.join(get_user_documents_path(), ".cursor-free-vip")
-                config_file = os.path.join(config_dir, "config.ini")
-                
-                # Write updated config
-                with open(config_file, 'w', encoding='utf-8') as f:
-                    config.write(f)
-                
-                print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('menu.language_config_saved', language=translator.get(f'languages.{selected_language}', fallback=selected_language))}{Style.RESET_ALL}")
-            
-            return True
-        else:
-            # Show invalid choice message with the correct range
-            print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.lang_invalid_choice', lang_choices=f'0-{languages_count-1}')}{Style.RESET_ALL}")
-            return False
-    except (ValueError, IndexError) as e:
-        print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.lang_invalid_choice', lang_choices=f'0-{languages_count-1}')}{Style.RESET_ALL}")
-        return False
-
-def check_latest_version():
-    """Check if current version matches the latest release version"""
-    try:
-        print(f"\n{Fore.CYAN}{EMOJI['UPDATE']} {translator.get('updater.checking')}{Style.RESET_ALL}")
-        
-        # First try GitHub API
-        headers = {
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': 'CursorFreeVIP-Updater'
-        }
-        
-        latest_version = None
-        github_error = None
-        
-        # Try GitHub API first
-        try:
-            github_response = requests.get(
-                "https://api.github.com/repos/yeongpin/cursor-free-vip/releases/latest",
-                headers=headers,
-                timeout=10
-            )
-            
-            # Check if rate limit exceeded
-            if github_response.status_code == 403 and "rate limit exceeded" in github_response.text.lower():
-                print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.rate_limit_exceeded', fallback='GitHub API rate limit exceeded. Trying backup API...')}{Style.RESET_ALL}")
-                raise Exception("Rate limit exceeded")
-                
-            # Check if response is successful
-            if github_response.status_code != 200:
-                raise Exception(f"GitHub API returned status code {github_response.status_code}")
-                
-            github_data = github_response.json()
-            if "tag_name" not in github_data:
-                raise Exception("No version tag found in GitHub response")
-                
-            latest_version = github_data["tag_name"].lstrip('v')
-            
-        except Exception as e:
-            github_error = str(e)
-            print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.github_api_failed', fallback='GitHub API failed, trying backup API...')}{Style.RESET_ALL}")
-            
-            # If GitHub API fails, try backup API
-            try:
-                backup_headers = {
-                    'Accept': 'application/json',
-                    'User-Agent': 'CursorFreeVIP-Updater'
-                }
-                backup_response = requests.get(
-                    "https://pinnumber.rr.nu/badges/release/yeongpin/cursor-free-vip",
-                    headers=backup_headers,
-                    timeout=10
-                )
-                
-                # Check if response is successful
-                if backup_response.status_code != 200:
-                    raise Exception(f"Backup API returned status code {backup_response.status_code}")
-                    
-                backup_data = backup_response.json()
-                if "message" not in backup_data:
-                    raise Exception("No version tag found in backup API response")
-                    
-                latest_version = backup_data["message"].lstrip('v')
-                
-            except Exception as backup_e:
-                # If both APIs fail, raise the original GitHub error
-                raise Exception(f"Both APIs failed. GitHub error: {github_error}, Backup error: {str(backup_e)}")
-        
-        # Validate version format
-        if not latest_version:
-            raise Exception("Invalid version format received")
-        
-        # Parse versions for proper comparison
-        def parse_version(version_str):
-            """Parse version string into tuple for proper comparison"""
-            try:
-                return tuple(map(int, version_str.split('.')))
-            except ValueError:
-                # Fallback to string comparison if parsing fails
-                return version_str
-                
-        current_version_tuple = parse_version(version)
-        latest_version_tuple = parse_version(latest_version)
-        
-        # Compare versions properly
-        is_newer_version_available = False
-        if isinstance(current_version_tuple, tuple) and isinstance(latest_version_tuple, tuple):
-            is_newer_version_available = current_version_tuple < latest_version_tuple
-        else:
-            # Fallback to string comparison
-            is_newer_version_available = version != latest_version
-        
-        if is_newer_version_available:
-            print(f"\n{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.new_version_available', current=version, latest=latest_version)}{Style.RESET_ALL}")
-            
-            # get and show changelog
-            try:
-                changelog_url = "https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/CHANGELOG.md"
-                changelog_response = requests.get(changelog_url, timeout=10)
-                
-                if changelog_response.status_code == 200:
-                    changelog_content = changelog_response.text
-                    
-                    # get latest version changelog
-                    latest_version_pattern = f"## v{latest_version}"
-                    changelog_sections = changelog_content.split("## v")
-                    
-                    latest_changes = None
-                    for section in changelog_sections:
-                        if section.startswith(latest_version):
-                            latest_changes = section
-                            break
-                    
-                    if latest_changes:
-                        print(f"\n{Fore.CYAN}{'─' * 40}{Style.RESET_ALL}")
-                        print(f"{Fore.CYAN}{translator.get('updater.changelog_title')}:{Style.RESET_ALL}")
-                        
-                        # show changelog content (max 10 lines)
-                        changes_lines = latest_changes.strip().split('\n')
-                        for i, line in enumerate(changes_lines[1:11]):  # skip version number line, max 10 lines
-                            if line.strip():
-                                print(f"{Fore.WHITE}{line.strip()}{Style.RESET_ALL}")
-                        
-                        # if changelog more than 10 lines, show ellipsis
-                        if len(changes_lines) > 11:
-                            print(f"{Fore.WHITE}...{Style.RESET_ALL}")
-                        
-                        print(f"{Fore.CYAN}{'─' * 40}{Style.RESET_ALL}")
-            except Exception as changelog_error:
-                # get changelog failed
-                pass
-            
-            # Ask user if they want to update
-            while True:
-                choice = input(f"\n{EMOJI['ARROW']} {Fore.CYAN}{translator.get('updater.update_confirm', choices='Y/n')}: {Style.RESET_ALL}").lower()
-                if choice in ['', 'y', 'yes']:
-                    break
-                elif choice in ['n', 'no']:
-                    print(f"\n{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.update_skipped')}{Style.RESET_ALL}")
-                    return
-                else:
-                    print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.invalid_choice')}{Style.RESET_ALL}")
-            
-            try:
-                # Execute update command based on platform
-                if platform.system() == 'Windows':
-                    update_command = 'irm https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/scripts/install.ps1 | iex'
-                    subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', update_command], check=True)
-                else:
-                    # For Linux/Mac, download and execute the install script
-                    install_script_url = 'https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/scripts/install.sh'
-                    
-                    # First verify the script exists
-                    script_response = requests.get(install_script_url, timeout=5)
-                    if script_response.status_code != 200:
-                        raise Exception("Installation script not found")
-                        
-                    # Save and execute the script
-                    with open('install.sh', 'wb') as f:
-                        f.write(script_response.content)
-                    
-                    os.chmod('install.sh', 0o755)  # Make executable
-                    subprocess.run(['./install.sh'], check=True)
-                    
-                    # Clean up
-                    if os.path.exists('install.sh'):
-                        os.remove('install.sh')
-                
-                print(f"\n{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('updater.updating')}{Style.RESET_ALL}")
-                sys.exit(0)
-                
-            except Exception as update_error:
-                print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('updater.update_failed', error=str(update_error))}{Style.RESET_ALL}")
-                print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.manual_update_required')}{Style.RESET_ALL}")
-                return
-        else:
-            # If current version is newer or equal to latest version
-            if current_version_tuple > latest_version_tuple:
-                print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('updater.development_version', current=version, latest=latest_version)}{Style.RESET_ALL}")
-            else:
-                print(f"{Fore.GREEN}{EMOJI['SUCCESS']} {translator.get('updater.up_to_date')}{Style.RESET_ALL}")
-            
-    except requests.exceptions.RequestException as e:
-        print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('updater.network_error', error=str(e))}{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.continue_anyway')}{Style.RESET_ALL}")
-        return
-        
-    except Exception as e:
-        print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('updater.check_failed', error=str(e))}{Style.RESET_ALL}")
-        print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('updater.continue_anyway')}{Style.RESET_ALL}")
-        return
 
 def main():
-    # Check for admin privileges if running as executable on Windows only
-    if platform.system() == 'Windows' and is_frozen() and not is_admin():
-        print(f"{Fore.YELLOW}{EMOJI['ADMIN']} {translator.get('menu.admin_required')}{Style.RESET_ALL}")
-        if run_as_admin():
-            sys.exit(0)  # Exit after requesting admin privileges
-        else:
-            print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.admin_required_continue')}{Style.RESET_ALL}")
+    """Main function."""
+    load_dotenv()
     
-    print_logo()
+    # Load configuration
+    config = get_config()
     
-    # Initialize configuration
-    config = get_config(translator)
-    if not config:
-        print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.config_init_failed')}{Style.RESET_ALL}")
-        return
-    force_update_config(translator)
-
-    if config.getboolean('Utils', 'enabled_update_check'):
-        check_latest_version()  # Add version check before showing menu
-    print_menu()
+    # Apply profile if specified via command line (will be applied after args parsing)
+    # For now, just load config
     
-    while True:
-        try:
-            choice_num = 17
-            choice = input(f"\n{EMOJI['ARROW']} {Fore.CYAN}{translator.get('menu.input_choice', choices=f'0-{choice_num}')}: {Style.RESET_ALL}")
+    # Setup Tesseract OCR
+    setup_tesseract()
+    
+    parser = argparse.ArgumentParser(description="Mewtwo - AI Agent for Pokemon Red")
+    parser.add_argument(
+        "--rom",
+        type=str,
+        required=True,
+        help="Path to Pokemon Red ROM file (.gb)"
+    )
+    parser.add_argument(
+        "--steps",
+        type=int,
+        default=config.get("game.default_steps", 100),
+        help=f"Number of steps to run (default: {config.get('game.default_steps', 100)})"
+    )
+    parser.add_argument(
+        "--llm-provider",
+        type=str,
+        default="ollama",
+        choices=["ollama", "claude"],
+        help="LLM provider to use (default: ollama). Can also be configured in config.yaml"
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help=f"Model name (default: {config.get('llm.ollama_model', 'llama3.2')} for Ollama, {config.get('llm.claude_model', 'claude-3-5-sonnet-20241022')} for Claude)"
+    )
+    parser.add_argument(
+        "--display",
+        action="store_true",
+        help="Enable display window"
+    )
+    parser.add_argument(
+        "--sound",
+        action="store_true",
+        help="Enable sound"
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run in headless mode (no display)"
+    )
+    parser.add_argument(
+        "--no-ocr",
+        action="store_true",
+        help="Disable OCR (much faster, but agent won't see screen text)"
+    )
+    parser.add_argument(
+        "--ocr-interval",
+        type=int,
+        default=config.get("ocr.interval", 50),
+        help=f"Run OCR every N frames (default: {config.get('ocr.interval', 50)}, higher = less frequent checks). Can also be configured in config.yaml"
+    )
+    parser.add_argument(
+        "--ocr-scale",
+        type=int,
+        default=config.get("ocr.scale_factor", 6),
+        help=f"OCR scale factor (default: {config.get('ocr.scale_factor', 6)}, higher = better OCR accuracy but slower). In headless mode, higher values (6-8) significantly improve OCR accuracy"
+    )
+    parser.add_argument(
+        "--memory-interval",
+        type=int,
+        default=config.get("memory.check_interval", 3),
+        help=f"Check memory every N steps (default: {config.get('memory.check_interval', 3)}, higher = less frequent checks). Can also be configured in config.yaml"
+    )
+    parser.add_argument(
+        "--goal-interval",
+        type=int,
+        default=config.get("agent.goal_check_interval", 5),
+        help=f"Check goal completion every N steps (default: {config.get('agent.goal_check_interval', 5)}, higher = less frequent checks). Can also be configured in config.yaml"
+    )
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help="Fast mode: disable OCR and reduce LLM calls"
+    )
+    parser.add_argument(
+        "--log",
+        type=str,
+        default=None,
+        help="Log file path (default: logs/pokemon_agent_YYYYMMDD_HHMMSS.json)"
+    )
+    parser.add_argument(
+        "--log-dir",
+        type=str,
+        default="logs",
+        help="Directory for log files (default: logs)"
+    )
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default=None,
+        choices=["aggressive", "conservative", "balanced"],
+        help="Strategy profile to use (aggressive, conservative, balanced). Overrides config.yaml active_profile."
+    )
+    
+    args = parser.parse_args()
+    
+    # Apply profile if specified
+    if args.profile:
+        applied_settings = config.apply_profile(args.profile)
+        if applied_settings:
+            print(f"Applied profile '{args.profile}': {applied_settings}")
+    elif config.get("active_profile"):
+        # Apply default profile from config
+        profile_name = config.get_active_profile()
+        applied_settings = config.apply_profile(profile_name)
+        if applied_settings and profile_name != "balanced":
+            print(f"Using profile '{profile_name}' from config.yaml")
+    
+    # Validate ROM file
+    rom_path = Path(args.rom)
+    
+    # Check for placeholder or invalid paths
+    if args.rom == "..." or args.rom.strip() == "":
+        print("Error: Invalid ROM path provided.")
+        print("Please provide the actual path to your ROM file.")
+        print(f"Example: python main.py --rom \"Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb\" --model llama3.2:1b --llm-provider ollama")
+        sys.exit(1)
+    
+    if not rom_path.exists():
+        print(f"Error: ROM file not found: {args.rom}")
+        print(f"Current directory: {Path.cwd()}")
+        print(f"Looking for: {rom_path.absolute()}")
+        # Check if file exists in current directory with different case
+        current_dir = Path.cwd()
+        if current_dir.exists():
+            gb_files = list(current_dir.glob("*.gb"))
+            if gb_files:
+                print(f"\nFound .gb files in current directory:")
+                for gb_file in gb_files:
+                    print(f"  - {gb_file.name}")
+        sys.exit(1)
+    
+    # Check if ROM file is readable
+    if not rom_path.is_file():
+        print(f"Error: ROM path is not a file: {args.rom}")
+        sys.exit(1)
+    
+    try:
+        # Test file permissions
+        with open(rom_path, 'rb') as f:
+            f.read(1)
+    except PermissionError as e:
+        print(f"Error: Permission denied accessing ROM file: {args.rom}")
+        print(f"Details: {e}")
+        print("\nPossible solutions:")
+        print("1. Check file permissions")
+        print("2. Make sure the file is not open in another program")
+        print("3. Run as administrator if needed")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Cannot read ROM file: {args.rom}")
+        print(f"Details: {e}")
+        sys.exit(1)
+    
+    # Initialize PyBoy
+    print(f"Loading ROM: {args.rom}")
+    window = "null" if args.headless else "SDL2" if args.display else "null"
+    pyboy_kwargs = {
+        "window": window,
+        "debug": False,
+        "sound_emulated": False,  # Disable sound by default
+        "sound": False  # Also disable sound output
+    }
+    if args.sound:
+        pyboy_kwargs["sound_emulated"] = True
+        pyboy_kwargs["sound"] = True
+    
+    try:
+        pyboy = PyBoy(str(rom_path), **pyboy_kwargs)
+    except PermissionError as e:
+        print(f"Error: Permission denied when initializing PyBoy with ROM: {args.rom}")
+        print(f"Details: {e}")
+        print("\nPossible causes:")
+        print("1. The ROM file is locked by another process")
+        print("2. PyBoy is trying to create/access a save state file (.gb.ram) that is locked")
+        print("3. Insufficient file permissions")
+        print("\nTry:")
+        print("1. Close any other programs that might be using the ROM file")
+        print("2. Delete the .gb.ram file if it exists and is causing issues")
+        print("3. Run as administrator if needed")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: Failed to initialize PyBoy with ROM: {args.rom}")
+        print(f"Details: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+    
+    # Wait for game to load
+    for _ in range(60):
+        pyboy.tick()
+    
+    print("Game loaded!")
+    
+    # Initialize components
+    print(f"Initializing LLM provider: {args.llm_provider}")
+    try:
+        llm_provider = create_llm_provider(args.llm_provider, args.model, config)
+    except Exception as e:
+        print(f"Error initializing LLM provider: {e}")
+        pyboy.stop()
+        sys.exit(1)
+    
+    # Configure OCR settings (command line args override config file)
+    ocr_enabled = not (args.no_ocr or args.fast) and config.get("ocr.enabled", True)
+    ocr_interval = 100 if args.fast else max(args.ocr_interval, 10)
+    memory_interval = 10 if args.fast else max(args.memory_interval, 1)
+    goal_interval = 10 if args.fast else max(args.goal_interval, 1)
+    
+    # Get performance config
+    perf_config = config.get_performance_config()
+    frames_per_step = 1 if args.fast else perf_config.get("frames_per_step", 3)
+    
+    ocr_scale_factor = args.ocr_scale if hasattr(args, 'ocr_scale') else config.get("ocr.scale_factor", 6)
+    game_state = GameState(pyboy, ocr_enabled=ocr_enabled, ocr_interval=ocr_interval,
+                          memory_check_interval=memory_interval, ocr_scale_factor=ocr_scale_factor)
+    
+    # Get agent config
+    agent_config = config.get_agent_config()
+    agent = PokemonAgent(
+        llm_provider, 
+        game_state, 
+        use_cache=agent_config.get("use_cache", True),
+        use_strategy=agent_config.get("use_strategy", True),
+        goal_check_interval=goal_interval
+    )
+    
+    # Setup logging
+    if args.log:
+        log_path = Path(args.log)
+    else:
+        log_dir = Path(args.log_dir)
+        log_dir.mkdir(exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_path = log_dir / f"pokemon_agent_{timestamp}.json"
+    
+    # Get active profile name
+    active_profile = args.profile or config.get_active_profile()
+    
+    log_data = {
+        "rom": str(rom_path),
+        "steps": args.steps,
+        "llm_provider": args.llm_provider,
+        "model": args.model,
+        "profile": active_profile,
+        "ocr_enabled": ocr_enabled,
+        "ocr_interval": ocr_interval,
+        "start_time": datetime.now().isoformat(),
+        "steps_log": []
+    }
+    
+    print(f"Starting agent for {args.steps} steps...")
+    print(f"Logging to: {log_path}")
+    print("Press Ctrl+C to stop early\n")
+    
+    try:
+        for step in range(args.steps):
+            result = agent.step()
+            
+            # Log this step
+            step_log = {
+                "step": step + 1,
+                "action": result['action'],
+                "success": result['success'],
+                "frame_count": result['game_info']['frame_count'],
+                "screen_text": result['game_info']['screen_text'],
+                "game_state": result['game_info'].get('game_state'),
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Add progress info if available
+            if result.get('progress'):
+                step_log["progress"] = result['progress']
+            
+            # Add memory-based info if available
+            if result['game_info'].get('current_map'):
+                step_log["location"] = result['game_info']['current_map'].get('map_name')
+            if result['game_info'].get('player_position'):
+                step_log["position"] = result['game_info']['player_position']
+            if result['game_info'].get('party'):
+                step_log["party_size"] = len(result['game_info']['party'])
+                if result['game_info']['party']:
+                    step_log["first_pokemon_level"] = result['game_info']['party'][0].get('level')
+            
+            log_data["steps_log"].append(step_log)
+            
+            # Save log after each step (in case of crash)
+            with open(log_path, 'w', encoding='utf-8') as f:
+                json.dump(log_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"Step {step + 1}/{args.steps}")
+            print(f"  Action: {result['action']}")
+            print(f"  Success: {result['success']}")
+            game_info = result['game_info']
+            if game_info.get('game_state'):
+                print(f"  Game State: {game_info['game_state']}")
+            
+            # Show progress if available
+            if result.get('progress'):
+                progress = result['progress']
+                print(f"  Progress: {progress['completed_goals']}/{progress['total_goals']} goals "
+                      f"({progress['progress_percent']:.1f}%)")
+                if progress['completed_goal_names']:
+                    recent_completed = progress['completed_goal_names'][-3:]
+                    print(f"  Recent Goals: {', '.join(recent_completed)}")
+            
+            # Show memory-based info if available
+            if game_info.get('current_map'):
+                map_info = game_info['current_map']
+                if map_info.get('map_name') and map_info.get('map_name') != 'Unknown':
+                    print(f"  Location: {map_info['map_name']}")
+            if game_info.get('player_position'):
+                pos = game_info['player_position']
+                if pos and pos != (0, 0):
+                    print(f"  Position: ({pos[0]}, {pos[1]})")
+            if game_info.get('party'):
+                party = game_info['party']
+                if party:
+                    print(f"  Party: {len(party)} Pokemon")
+                    if party[0].get('level'):
+                        print(f"  First Pokemon: Level {party[0]['level']}, "
+                              f"HP {party[0].get('hp_current', 0)}/{party[0].get('hp_max', 0)}")
+            
+            if result.get('state_changed') is False:
+                print(f"  Warning: State unchanged - action may not have had effect")
+            if result.get('stuck_count', 0) > 3:
+                print(f"  Warning: Stuck for {result['stuck_count']} steps")
+            if game_info.get('screen_text'):
+                text_preview = game_info['screen_text'][:80].replace('\n', ' ')
+                print(f"  Screen Text: {text_preview}...")
+            print()
+            
+            # Let game run for multiple frames to smooth out gameplay
+            for _ in range(frames_per_step):
+                pyboy.tick()
+    
+    except KeyboardInterrupt:
+        print("\nStopped by user")
+        log_data["end_time"] = datetime.now().isoformat()
+        log_data["stopped_by_user"] = True
+    except Exception as e:
+        print(f"\nError: {e}")
+        import traceback
+        traceback.print_exc()
+        log_data["end_time"] = datetime.now().isoformat()
+        log_data["error"] = str(e)
+        log_data["traceback"] = traceback.format_exc()
+    finally:
+        # Finalize log
+        log_data["end_time"] = log_data.get("end_time", datetime.now().isoformat())
+        log_data["total_steps_completed"] = len(log_data["steps_log"])
+        
+        # Add final progress summary
+        if hasattr(agent, 'strategy') and agent.strategy:
+            log_data["final_progress"] = agent.strategy.get_progress_summary()
+            print("\n" + "=" * 60)
+            print("Final Progress Summary")
+            print("=" * 60)
+            progress = agent.strategy.get_progress_summary()
+            print(f"Completed Goals: {progress['completed_goals']}/{progress['total_goals']} "
+                  f"({progress['progress_percent']:.1f}%)")
+            print(f"Current Phase: {progress['current_phase']}")
+            print(f"Total Steps: {progress['step_count']}")
+            if progress['completed_goal_names']:
+                print(f"Completed: {', '.join(progress['completed_goal_names'])}")
+            print("=" * 60)
+        
+        with open(log_path, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"\nLog saved to: {log_path}")
+        print("Shutting down...")
+        pyboy.stop()
 
-            match choice:
-                case "0":
-                    print(f"\n{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.exit')}...{Style.RESET_ALL}")
-                    print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
-                    return
-                case "1":
-                    import reset_machine_manual
-                    reset_machine_manual.run(translator)
-                    print_menu()   
-                case "2":
-                    import cursor_register_manual
-                    cursor_register_manual.main(translator)
-                    print_menu()    
-                case "3":
-                    import quit_cursor
-                    quit_cursor.quit_cursor(translator)
-                    print_menu()
-                case "4":
-                    if select_language():
-                        print_menu()
-                    continue
-                case "5":
-                    from oauth_auth import main as oauth_main
-                    oauth_main('google',translator)
-                    print_menu()
-                case "6":
-                    from oauth_auth import main as oauth_main
-                    oauth_main('github',translator)
-                    print_menu()
-                case "7":
-                    import disable_auto_update
-                    disable_auto_update.run(translator)
-                    print_menu()
-                case "8":
-                    import totally_reset_cursor
-                    totally_reset_cursor.run(translator)
-                    # print(f"{Fore.YELLOW}{EMOJI['INFO']} {translator.get('menu.fixed_soon')}{Style.RESET_ALL}")
-                    print_menu()
-                case "9":
-                    import logo
-                    print(logo.CURSOR_CONTRIBUTORS)
-                    print_menu()
-                case "10":
-                    from config import print_config
-                    print_config(get_config(), translator)
-                    print_menu()
-                case "11":
-                    import bypass_version
-                    bypass_version.main(translator)
-                    print_menu()
-                case "12":
-                    import check_user_authorized
-                    check_user_authorized.main(translator)
-                    print_menu()
-                case "13":
-                    import bypass_token_limit
-                    bypass_token_limit.run(translator)
-                    print_menu()
-                case "14":
-                    import restore_machine_id
-                    restore_machine_id.run(translator)
-                    print_menu()
-                case "15":
-                    import delete_cursor_google
-                    delete_cursor_google.main(translator)
-                    print_menu()
-                case "16":
-                    from oauth_auth import OAuthHandler
-                    oauth = OAuthHandler(translator)
-                    oauth._select_profile()
-                    print_menu()
-                case "17":
-                    import manual_custom_auth
-                    manual_custom_auth.main(translator)
-                    print_menu()
-                case _:
-                    print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.invalid_choice')}{Style.RESET_ALL}")
-                    print_menu()
-
-        except KeyboardInterrupt:
-            print(f"\n{Fore.YELLOW}{EMOJI['INFO']}  {translator.get('menu.program_terminated')}{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}{'═' * 50}{Style.RESET_ALL}")
-            return
-        except Exception as e:
-            print(f"{Fore.RED}{EMOJI['ERROR']} {translator.get('menu.error_occurred', error=str(e))}{Style.RESET_ALL}")
-            print_menu()
 
 if __name__ == "__main__":
     main()
+

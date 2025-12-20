@@ -1,253 +1,237 @@
-# ➤ Cursor Free VIP
+# Mewtwo
 
-<div align="center">
-<p align="center">
-  <img src="./images/logo.png" alt="Cursor Pro Logo" width="200" style="border-radius: 6px;"/>
-</p>
+**Version 0.0.5.1**
 
-<p align="center">
+A powerful AI agent that plays Pokemon Red using a Game Boy emulator (PyBoy) and a Large Language Model. Named after the legendary Pokemon Mewtwo, known for its intelligence and psychic abilities.
 
-[![Release](https://img.shields.io/endpoint?url=https://api.pinstudios.net/api/badges/release/yeongpin/cursor-free-vip)](https://github.com/yeongpin/cursor-free-vip/releases/latest)
-[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-[![Stars](https://img.shields.io/endpoint?url=https://api.pinstudios.net/api/badges/stars/yeongpin/cursor-free-vip)](https://github.com/yeongpin/cursor-free-vip/stargazers)
-[![Downloads](https://img.shields.io/endpoint?url=https://api.pinstudios.net/api/badges/downloads/yeongpin/cursor-free-vip/total)](https://github.com/yeongpin/cursor-free-vip/releases/latest)
-<a href="https://buymeacoffee.com/yeongpin" target="_blank"><img alt="Buy Me a Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20Me-FFDA33"></a>
- [<img src="https://devin.ai/assets/deepwiki-badge.png" alt="Ask DeepWiki.com" height="20"/>](https://deepwiki.com/yeongpin/cursor-free-vip)
+## Features
 
-</p>
+- Play Pokemon Red using PyBoy emulator
+- AI agent powered by LLMs (Ollama for local, Claude API for cloud)
+- Game state extraction via OCR and memory reading
+- Goal-oriented strategy system with exploration/exploitation balance
+- Action caching and optimization to reduce LLM calls
+- Comprehensive configuration system (config.yaml)
+- Action-based gameplay control
 
+## Prerequisites
 
-<a href="https://trendshift.io/repositories/13425" target="_blank"><img src="https://trendshift.io/api/badge/repositories/13425" alt="yeongpin%2Fcursor-free-vip | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-<br>
+1. **Python 3.8+**
+2. **Tesseract OCR** (for text extraction):
+   - Windows: Download from [Tesseract GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
+   - macOS: `brew install tesseract`
+   - Linux: `sudo apt-get install tesseract-ocr`
+3. **Pokemon Red ROM** (.gb file) - You must provide your own legal copy
+4. **Ollama** (for local LLM) - Download from [ollama.com](https://ollama.com)
 
-<h4>Support Latest 0.49.x Version | 支持最新 0.49.x 版本</h4>
+## Installation
 
-This tool is for educational purposes, currently the repo does not violate any laws. Please support the original project.
-This tool will not generate any fake email accounts and OAuth access.
+1. Clone or download this repository:
+```bash
+cd pokemon
+```
 
-Supports Windows, macOS and Linux.
+2. Create a virtual environment:
+```bash
+python -m venv venv
+```
 
-For optimal performance, run with privileges and always stay up to date.
+3. Activate the virtual environment:
+```bash
+# Windows
+venv\Scripts\activate
 
-這是一款用於學習和研究的工具，目前 repo 沒有違反任何法律。請支持原作者。
-這款工具不會生成任何假的電子郵件帳戶和 OAuth 訪問。
+# macOS/Linux
+source venv/bin/activate
+```
 
-支持 Windows、macOS 和 Linux。
+4. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-對於最佳性能，請以管理員身份運行並始終保持最新。
+5. Install and set up Ollama (for local inference):
+```bash
+# Download and install Ollama from https://ollama.com
+# Then pull a model:
+ollama pull llama3.2
+```
 
+6. (Optional) Set up Claude API:
+```bash
+# Create a .env file:
+echo "ANTHROPIC_API_KEY=your_api_key_here" > .env
+```
 
-<p align="center">
-  <img src="./images/product_2025-04-16_10-40-21.png" alt="new" width="800" style="border-radius: 6px;"/><br>
-</p>
+## Usage
 
-</div>
-
-## 🔄 Change Log | 更新日志
-
-[Watch Change Log | 查看更新日志](CHANGELOG.md)
-
-## ✨ Features | 功能特點
-
-* Support Windows macOS and Linux systems<br>支持 Windows、macOS 和 Linux 系統<br>
-
-* Reset Cursor's configuration<br>重置 Cursor 的配置<br>
-
-* Multi-language support (English, 简体中文, 繁體中文, Vietnamese)<br>多語言支持（英文、简体中文、繁體中文、越南語）<br>
-
-## 💻 System Support | 系統支持
-
-| Operating System | Architecture      | Supported |
-|------------------|-------------------|-----------|
-| Windows          | x64, x86          | ✅         |
-| macOS            | Intel, Apple Silicon | ✅      |
-| Linux            | x64, x86, ARM64   | ✅         |
-
-## 👀 How to use | 如何使用
-
-<details open>
-<summary><b>⭐ Auto Run Script | 腳本自動化運行</b></summary>
-
-### **Linux/macOS**
+### Basic Usage (Local with Ollama)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/scripts/install.sh -o install.sh && chmod +x install.sh && ./install.sh
+python main.py --rom path/to/pokemon_red.gb --steps 100 --display
 ```
 
-### **Archlinux**
-
-Install via [AUR](https://aur.archlinux.org/packages/cursor-free-vip-git)
+### With Sound
 
 ```bash
-yay -S cursor-free-vip-git
+python main.py --rom path/to/pokemon_red.gb --steps 100 --display --sound
 ```
 
-### **Windows**
+### Using Claude API
 
-```powershell
-irm https://raw.githubusercontent.com/yeongpin/cursor-free-vip/main/scripts/install.ps1 | iex
+```bash
+python main.py --rom path/to/pokemon_red.gb --steps 100 --llm-provider claude --display
 ```
 
-</details>
+### Headless Mode (No Display)
 
-If you want to stop the script, please press Ctrl+C<br>要停止腳本，請按 Ctrl+C
-
-## ❗ Note | 注意事項
-
-📝 Config | 文件配置
-`Win / Macos / Linux Path | 路徑 [Documents/.cursor-free-vip/config.ini]`
-<details>
-<summary><b>⭐ Config | 文件配置</b></summary>
-
-```
-[Chrome]
-# Default Google Chrome Path | 默認Google Chrome 遊覽器路徑
-chromepath = C:\Program Files\Google/Chrome/Application/chrome.exe
-
-[Turnstile]
-# Handle Turnstile Wait Time | 等待人機驗證時間
-handle_turnstile_time = 2
-# Handle Turnstile Wait Random Time (must merge 1-3 or 1,3) | 等待人機驗證隨機時間（必須是 1-3 或者 1,3 這樣的組合）
-handle_turnstile_random_time = 1-3
-
-[OSPaths]
-# Storage Path | 存儲路徑
-storage_path = /Users/username/Library/Application Support/Cursor/User/globalStorage/storage.json
-# SQLite Path | SQLite路徑
-sqlite_path = /Users/username/Library/Application Support/Cursor/User/globalStorage/state.vscdb
-# Machine ID Path | 機器ID路徑
-machine_id_path = /Users/username/Library/Application Support/Cursor/machineId
-# For Linux users: ~/.config/cursor/machineid
-
-[Timing]
-# Min Random Time | 最小隨機時間
-min_random_time = 0.1
-# Max Random Time | 最大隨機時間
-max_random_time = 0.8
-# Page Load Wait | 頁面加載等待時間
-page_load_wait = 0.1-0.8
-# Input Wait | 輸入等待時間
-input_wait = 0.3-0.8
-# Submit Wait | 提交等待時間
-submit_wait = 0.5-1.5
-# Verification Code Input | 驗證碼輸入等待時間
-verification_code_input = 0.1-0.3
-# Verification Success Wait | 驗證成功等待時間
-verification_success_wait = 2-3
-# Verification Retry Wait | 驗證重試等待時間
-verification_retry_wait = 2-3
-# Email Check Initial Wait | 郵件檢查初始等待時間
-email_check_initial_wait = 4-6
-# Email Refresh Wait | 郵件刷新等待時間
-email_refresh_wait = 2-4
-# Settings Page Load Wait | 設置頁面加載等待時間
-settings_page_load_wait = 1-2
-# Failed Retry Time | 失敗重試時間
-failed_retry_time = 0.5-1
-# Retry Interval | 重試間隔
-retry_interval = 8-12
-# Max Timeout | 最大超時時間
-max_timeout = 160
-
-[Utils]
-# Check Update | 檢查更新
-check_update = True
-# Show Account Info | 顯示賬號信息
-show_account_info = True
-
-[TempMailPlus]
-# Enable TempMailPlus | 啓用 TempMailPlus（任何轉發到TempMailPlus的郵件都支持獲取驗證碼，例如cloudflare郵件Catch-all）
-enabled = false
-# TempMailPlus Email | TempMailPlus 電子郵件
-email = xxxxx@mailto.plus
-# TempMailPlus pin | TempMailPlus pin碼
-epin = 
-
-[WindowsPaths]
-storage_path = C:\Users\yeongpin\AppData\Roaming\Cursor\User\globalStorage\storage.json
-sqlite_path = C:\Users\yeongpin\AppData\Roaming\Cursor\User\globalStorage\state.vscdb
-machine_id_path = C:\Users\yeongpin\AppData\Roaming\Cursor\machineId
-cursor_path = C:\Users\yeongpin\AppData\Local\Programs\Cursor\resources\app
-updater_path = C:\Users\yeongpin\AppData\Local\cursor-updater
-update_yml_path = C:\Users\yeongpin\AppData\Local\Programs\Cursor\resources\app-update.yml
-product_json_path = C:\Users\yeongpin\AppData\Local\Programs\Cursor\resources\app\product.json
-
-[Browser]
-default_browser = opera
-chrome_path = C:\Program Files\Google\Chrome\Application\chrome.exe
-edge_path = C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
-firefox_path = C:\Program Files\Mozilla Firefox\firefox.exe
-brave_path = C:\Program Files\BraveSoftware/Brave-Browser/Application/brave.exe
-chrome_driver_path = D:\VisualCode\cursor-free-vip-new\drivers\chromedriver.exe
-edge_driver_path = D:\VisualCode\cursor-free-vip-new\drivers\msedgedriver.exe
-firefox_driver_path = D:\VisualCode\cursor-free-vip-new\drivers\geckodriver.exe
-brave_driver_path = D:\VisualCode\cursor-free-vip-new\drivers\chromedriver.exe
-opera_path = C:\Users\yeongpin\AppData\Local\Programs\Opera\opera.exe
-opera_driver_path = D:\VisualCode\cursor-free-vip-new\drivers\chromedriver.exe
-
-[OAuth]
-show_selection_alert = False
-timeout = 120
-max_attempts = 3
+```bash
+python main.py --rom path/to/pokemon_red.gb --steps 100 --headless
 ```
 
-</details>
+## Command Line Arguments
 
-* Use administrator privileges to run the script <br>請使用管理員身份運行腳本
+- `--rom`: Path to Pokemon Red ROM file (required)
+- `--steps`: Number of steps to run (default: 100)
+- `--llm-provider`: LLM provider to use - `ollama` or `claude` (default: ollama)
+- `--model`: Model name (optional, uses defaults if not specified)
+- `--profile`: Strategy profile - `aggressive`, `conservative`, or `balanced` (default: balanced)
+- `--display`: Enable display window
+- `--sound`: Enable sound
+- `--headless`: Run in headless mode (no display)
 
-* Confirm that Cursor is closed before running the script <br>請確保在運行腳本前已經關閉 Cursor<br>
+## Project Structure
 
-* This tool is only for learning and research purposes <br>此工具僅供學習和研究使用<br>
+```
+pokemon/
+├── main.py                 # Main entry point
+├── pokemon_agent.py        # AI agent logic
+├── game_state.py           # Game state extraction & controls
+├── llm_provider.py         # LLM integration (Ollama/Claude)
+├── llm_optimizer.py        # LLM prompt optimization
+├── config.py               # Configuration helpers
+├── requirements.txt        # Python dependencies
+├── docs/                   # Documentation
+│   ├── EXTRACT_ROM_GUIDE.md
+│   ├── LLM_OPTIMIZATION_GUIDE.md
+│   ├── LOGGING_GUIDE.md
+│   ├── PERFORMANCE_GUIDE.md
+│   ├── SETUP_STATUS.md
+│   └── ...
+├── scripts/                # Utility scripts
+│   ├── demo.py            # Setup verification demo
+│   ├── verify_rom.py      # ROM verification script
+│   ├── visual_demo.py     # Visual demonstration
+│   └── analyze_log.py     # Log analysis tool
+└── logs/                   # Agent execution logs (auto-generated)
+```
 
-* Please comply with the relevant software usage terms when using this tool <br>使用本工具時請遵守相關軟件使用條款
+## How It Works
 
-## 🚨 Common Issues | 常見問題
+1. **PyBoy Emulator**: Loads and runs the Pokemon Red ROM
+2. **Game State Extraction**: Uses OCR to extract text from the screen
+3. **LLM Agent**: Analyzes game state and decides on actions
+4. **Action Execution**: Sends button presses to the emulator
+5. **Loop**: Repeats the process for the specified number of steps
 
-|                   如果遇到權限問題，請確保：                    |                   此腳本以管理員身份運行                    |
-|:--------------------------------------------------:|:------------------------------------------------:|
-| If you encounter permission issues, please ensure: | This script is run with administrator privileges |
-| Error 'User is not authorized' | This means your account was banned for using temporary (disposal) mail. Ensure using a non-temporary mail service |
-## 🤩 Contribution | 貢獻
+## Available Actions
 
-歡迎提交 Issue 和 Pull Request！
+The agent can use these actions:
+- `UP`, `DOWN`, `LEFT`, `RIGHT`: Movement
+- `A`: Confirm/interact
+- `B`: Cancel/go back
+- `START`: Open menu
+- `SELECT`: Select button
+- `WAIT N`: Wait N frames
 
+## Utility Scripts
 
-<a href="https://github.com/yeongpin/cursor-free-vip/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=yeongpin/cursor-free-vip&preview=true&max=&columns=" />
-</a>
-<br /><br />
+### Verify ROM
+Check if your ROM file is valid:
+```bash
+python scripts/verify_rom.py path/to/pokemon_red.gb
+```
 
-## 📩 Disclaimer | 免責聲明
+### Check Setup
+Verify your installation:
+```bash
+python scripts/demo.py
+```
 
-本工具僅供學習和研究使用，使用本工具所產生的任何後果由使用者自行承擔。 <br>
+### Analyze Logs
+Analyze agent execution logs:
+```bash
+python scripts/analyze_log.py --latest
+python scripts/analyze_log.py logs/pokemon_agent_YYYYMMDD_HHMMSS.json
+```
 
-This tool is only for learning and research purposes, and any consequences arising from the use of this tool are borne
-by the user.
+## Documentation
 
-## 💰 Buy Me a Coffee | 請我喝杯咖啡
+See the `docs/` directory for detailed guides:
+- `EXTRACT_ROM_GUIDE.md` - How to extract ROM from cartridge
+- `LOGGING_GUIDE.md` - Logging and analysis guide
+- `PERFORMANCE_GUIDE.md` - Performance optimization tips
+- `TROUBLESHOOTING.md` - Common issues and solutions
+- `setup_ollama.md` - Ollama setup instructions
 
-<div align="center">
-  <table>
-    <tr>
-      <td>
-        <img src="./images/provi-code.jpg" alt="buy_me_a_coffee" width="280"/><br>
-      </td>
-      <td>
-        <img src="./images/paypal.png" alt="buy_me_a_coffee" width="280"/><br>
-      </td>
-    </tr>
-  </table>
-</div>
+## Troubleshooting
 
-## ⭐ Star History | 星星數
+### OCR Not Working
+- Ensure Tesseract is installed and in your PATH
+- On Windows, you may need to set the path: `pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'`
 
-<div align="center">
+### Ollama Connection Issues
+- Ensure Ollama is running: `ollama serve`
+- Verify model is installed: `ollama list`
+- See `docs/setup_ollama.md` for detailed setup instructions
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yeongpin/cursor-free-vip&type=Date)](https://star-history.com/#yeongpin/cursor-free-vip&Date)
+### ROM Issues
+- Ensure you have a valid Pokemon Red ROM (.gb file)
+- ROM must be a legal copy you own
+- Use `scripts/verify_rom.py` to check your ROM file
 
-</div>
+## Configuration
 
-## 📝 License | 授權
+Mewtwo uses a YAML configuration file (`config.yaml`) for easy tuning of agent behavior:
 
-本項目採用 [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/) 授權。
-Please refer to the [LICENSE](LICENSE.md) file for details.
+- **Agent settings**: Action history, caching, goal checking intervals
+- **Strategy settings**: Exploration rate, goal priorities
+- **LLM settings**: Token limits, default models
+- **Performance settings**: Cache sizes, frame rates
+- **OCR/Memory settings**: Check intervals, enable/disable features
+
+Command-line arguments override config file settings. See `config.yaml` for all available options.
+
+### Strategy Profiles
+
+Mewtwo includes three pre-configured strategy profiles:
+
+- **`balanced`** (default): 30% exploration, 70% goal-focused. Standard settings for general gameplay.
+- **`aggressive`**: 10% exploration, 90% goal-focused. Fast progress, less exploration, larger cache for speed.
+- **`conservative`**: 50% exploration, 50% goal-focused. More thorough exploration, smaller cache, more thoughtful decisions.
+
+Select a profile via command line:
+```bash
+python main.py --rom path/to/pokemon_red.gb --profile aggressive --steps 200
+```
+
+Or set `active_profile` in `config.yaml`. Profiles can be customized by editing the `profiles` section in `config.yaml`.
+
+## Version
+
+Current version: **0.0.5.1**
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and [docs/VERSION_HISTORY.md](docs/VERSION_HISTORY.md) for detailed version information.
+
+## Contributing
+
+See [TODO.md](TODO.md) for planned improvements and contribution ideas.
+
+## License
+
+This project is for educational purposes. Ensure you have legal rights to use the Pokemon ROM file.
+
+## Disclaimer
+
+This project is not affiliated with Nintendo, Game Freak, or The Pokemon Company. Pokemon is a trademark of Nintendo. Use ROMs only if you own the original game.
+
