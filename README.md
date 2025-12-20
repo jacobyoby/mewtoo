@@ -225,11 +225,15 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and [docs/VERSION_HISTORY.m
 
 ## Contributing
 
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 See [TODO.md](TODO.md) for planned improvements and contribution ideas.
 
 ## License
 
-This project is for educational purposes. Ensure you have legal rights to use the Pokemon ROM file.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Important:** This project is for educational purposes. Ensure you have legal rights to use the Pokemon ROM file. ROM files are not included in this repository and must be provided separately.
 
 ## Disclaimer
 
