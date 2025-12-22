@@ -74,8 +74,8 @@ Before you begin, ensure you have:
 #### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/mewtwo.git
-cd mewtwo
+git clone https://github.com/jacobyoby/mewtoo.git
+cd mewtoo
 ```
 
 #### 2. Set Up Python Environment
@@ -369,5 +369,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Documentation](docs/) - Comprehensive guides
 - [Report a Bug](.github/ISSUE_TEMPLATE/bug_report.md) - Found a bug?
 - [Request a Feature](.github/ISSUE_TEMPLATE/feature_request.md) - Have an idea?
-- [Ask a Question](.github/ISSUE_TEMPLATE/question.md) - Need help? Use ROMs only if you own the original game.
+- [Ask a Question](.github/ISSUE_TEMPLATE/question.md) - Need help?
 
