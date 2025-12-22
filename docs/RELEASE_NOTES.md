@@ -1,6 +1,6 @@
 # Release Notes
 
-## Version 0.0.7 - Enhanced State Detection and Blank Screen Handling (In Progress)
+## Version 0.0.7 - Enhanced State Detection and Blank Screen Handling (2025-12-21)
 
 This release focuses on improving the agent's ability to progress through the early game sequence, particularly character creation and transitions.
 
