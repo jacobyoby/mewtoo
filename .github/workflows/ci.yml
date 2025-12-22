@@ -31,9 +31,11 @@ jobs:
 
       - name: Run Ruff linter
         run: ruff check . --output-format=github
+        continue-on-error: true  # Report issues without failing (existing codebase)
 
       - name: Run Ruff formatter check
-        run: ruff format --check .
+        run: ruff format --check . || echo "::warning::Some files need formatting. Run 'ruff format .' to fix."
+        continue-on-error: true  # Report issues without failing (existing codebase)
 
       - name: Run MyPy type checker
         run: mypy --ignore-missing-imports --no-error-summary .

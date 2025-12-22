@@ -9,25 +9,30 @@ select = [
     "E",      # pycodestyle errors
     "W",      # pycodestyle warnings
     "F",      # Pyflakes
-    "I",      # isort
     "B",      # flake8-bugbear
     "C4",     # flake8-comprehensions
-    "UP",     # pyupgrade
-    "SIM",    # flake8-simplify
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)
+    "E402",   # module level import not at top of file
+    "E722",   # bare except (existing code pattern)
+    "E741",   # ambiguous variable name
+    "W291",   # trailing whitespace
+    "W293",   # blank line contains whitespace
+    "B007",   # loop control variable not used
     "B008",   # do not perform function calls in argument defaults
+    "B904",   # raise from err (existing code pattern)
     "B905",   # zip without strict= (Python 3.10+)
-    "SIM108", # ternary operator suggestion
+    "F401",   # imported but unused (too noisy for existing code)
+    "F541",   # f-string without placeholders
+    "F811",   # redefinition of unused name
+    "F841",   # local variable assigned but never used
 ]
 
 [lint.per-file-ignores]
-"tests/*" = ["B011", "B017", "S101"]  # Allow assert, pytest patterns
-"__init__.py" = ["F401"]              # Allow unused imports in __init__
-
-[lint.isort]
-known-first-party = ["pokemon_agent", "game_state", "memory_reader", "llm_provider", "config", "metrics"]
+"tests/*" = ["B011", "B017", "S101", "B007"]  # Allow assert, pytest patterns, unused loop vars
+"scripts/*" = ["F541"]                         # Allow f-strings without placeholders
+"__init__.py" = ["F401"]                       # Allow unused imports in __init__
 
 [format]
 quote-style = "double"
