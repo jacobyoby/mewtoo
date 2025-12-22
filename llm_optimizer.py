@@ -19,6 +19,7 @@ class ActionCache:
         self.max_size = max_size
         self.hits = 0
         self.misses = 0
+        self.evictions = 0
     
     def _get_key(self, screen_text: str, frame_count: int, recent_actions: list) -> str:
         """Generate cache key from game state."""
@@ -63,6 +64,7 @@ class ActionCache:
             if self.access_order:
                 lru_key = self.access_order.pop(0)
                 del self.cache[lru_key]
+                self.evictions += 1
         
         self.cache[key] = action
         # Update access order
@@ -78,7 +80,9 @@ class ActionCache:
             "hits": self.hits,
             "misses": self.misses,
             "hit_rate": hit_rate,
-            "size": len(self.cache)
+            "size": len(self.cache),
+            "max_size": self.max_size,
+            "evictions": self.evictions
         }
 
 
@@ -168,7 +172,7 @@ class PromptOptimizer:
         hint = PromptOptimizer._get_context_hint(game_state, step_count, recent_actions, strategy_context)
         
         # Action explanations
-        action_explanations = PromptOptimizer._get_action_explanations(game_state, strategy_context)
+        action_explanations = PromptOptimizer._get_action_explanations(game_state, strategy_context, step_count)
         
         # Build prompt
         prompt_parts = [
@@ -205,6 +209,10 @@ class PromptOptimizer:
         if game_state == "title_screen":
             return "Title screen - press START to begin new game"
         elif game_state == "menu":
+            # Check if we're in character creation (early menu after title screen)
+            # Don't suggest B during character creation as it cancels new game
+            if step_count < 50:
+                return "In menu/character creation - use UP/DOWN to navigate, A to select (DO NOT press B - it will cancel new game)"
             return "In menu - use UP/DOWN to navigate, A to select, B to cancel"
         elif game_state == "battle":
             return "In battle - choose actions carefully. A to attack, B to use items, UP/DOWN to select"
@@ -223,7 +231,7 @@ class PromptOptimizer:
             return "Playing - explore and progress through the game"
     
     @staticmethod
-    def _get_action_explanations(game_state: str, strategy_context: Optional[Dict] = None) -> str:
+    def _get_action_explanations(game_state: str, strategy_context: Optional[Dict] = None, step_count: int = 0) -> str:
         """Get explanations for available actions."""
         explanations = []
         
@@ -232,7 +240,12 @@ class PromptOptimizer:
         elif game_state == "menu":
             explanations.append("UP/DOWN - Navigate menu options")
             explanations.append("A - Select current option")
-            explanations.append("B - Go back/cancel")
+            # Don't suggest B during early game (character creation)
+            # B during character creation cancels new game!
+            if step_count >= 50:  # Only suggest B after character creation is done
+                explanations.append("B - Go back/cancel")
+            else:
+                explanations.append("WARNING: DO NOT press B - you are creating a new character, B will cancel!")
         elif game_state == "battle":
             explanations.append("A - Confirm selection (attack, item, etc.)")
             explanations.append("UP/DOWN - Navigate battle menu")
@@ -245,7 +258,7 @@ class PromptOptimizer:
             explanations.append("A - Interact (talk, check, use)")
             explanations.append("B - Run (in battle) or cancel")
             if strategy_context and strategy_context.get("current_goal") == "reach_viridian":
-                explanations.append("→ Move UP/NORTH to progress toward Viridian City")
+                explanations.append("-> Move UP/NORTH to progress toward Viridian City")
         
         return "\n".join(explanations) if explanations else ""
     

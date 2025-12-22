@@ -382,7 +382,8 @@ class AgentStrategy:
         if "reach_viridian" not in self.completed_goals:
             map_info = memory_data.get("current_map", {})
             map_id = map_info.get("map_id", 0)
-            if map_id == 0x01:  # Viridian City
+            # Viridian City is map ID 0x01 (1) in Pokemon Red
+            if map_id == 1 or map_id == 0x01:
                 self.mark_goal_complete("reach_viridian")
         
         # Check reach_pewter completion

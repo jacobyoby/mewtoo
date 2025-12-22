@@ -1,9 +1,11 @@
 # Improvement Plan for Mewtwo
 
-**Current Version**: 0.0.5  
-**Last Updated**: 2025-12-19
+**Current Version**: 0.0.7  
+**Last Updated**: 2025-12-21
 
-Based on analysis of the current codebase and execution logs, here are prioritized improvements.
+This document outlines planned improvements. For implemented improvements, see `docs/IMPROVEMENTS_IMPLEMENTED.md`.
+
+**Note**: Many improvements from earlier versions have been implemented. This document focuses on remaining work toward v1.0.0.
 
 ## Critical Improvements (High Impact)
 
@@ -185,7 +187,7 @@ Track these to measure improvements:
 - **Diversity**: Action distribution (less repetitive = better)
 - **Stuck Detection**: Time spent in same state
 
-## 🔄 Iterative Approach
+## Iterative Approach
 
 1. Start with Quick Wins (OCR, prompts, patterns)
 2. Implement Memory Reading (biggest impact)

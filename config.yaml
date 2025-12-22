@@ -1,5 +1,5 @@
 # Mewtwo Configuration File
-# Version: 0.0.5.1
+# Version: 0.0.7
 
 # Active Profile (aggressive, conservative, balanced, or custom)
 # Profiles override default strategy settings
@@ -104,6 +104,9 @@ logging:
   
   # Auto-generate log files
   auto_log: true
+  
+  # Enable metrics tracking (performance, cache, LLM statistics)
+  metrics_enabled: true
 
 # Game Configuration
 game:

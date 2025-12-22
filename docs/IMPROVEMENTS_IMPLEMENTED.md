@@ -2,16 +2,32 @@
 
 This document summarizes the improvements that have been implemented to enhance the Pokemon agent.
 
+## Enhanced State Detection and Blank Screen Handling (v0.0.7)
+
+**What Changed:**
+- Added `detect_blank_screen()` method to detect screens that are >80% white or black
+- State detection now validates screen content before reporting state
+- Blank screens correctly detected and handled during gameplay
+- Character creation protection prevents agent from backing out
+- Enhanced stuck detection with automatic screenshot saving
+
+**Impact:** Agent successfully reaches character creation/naming screens and handles blank screen transitions properly
+
+**Files Modified:**
+- `game_state.py` - Added blank screen detection, enhanced state validation
+- `pokemon_agent.py` - Added blank screen handling, character creation protection, screenshot saving
+- `llm_optimizer.py` - Updated prompts to prevent B during character creation
+
 ## Completed Improvements
 
 ### 1. Enhanced OCR Preprocessing
 **What Changed:**
-- Image scaling: 4x upscaling (160x144 → 640x576) for better OCR accuracy
+- Image scaling: 4x upscaling (160x144 -> 640x576) for better OCR accuracy
 - Adaptive thresholding instead of fixed threshold
 - Focus on dialog regions (bottom 40% of screen) where text usually appears
 - Multiple PSM modes (PSM 7 for dialog, PSM 6 for full screen)
 - Character whitelist filtering for Game Boy font
-- Common OCR error correction (|→I, 0→O, 5→S)
+- Common OCR error correction (|->I, 0->O, 5->S)
 
 **Impact:** Significantly better text extraction, especially for dialog boxes
 
@@ -181,11 +197,39 @@ See `docs/IMPROVEMENTS.md` for the full improvement roadmap, including:
 - `agent_strategy.py` - Accepts profile parameters
 - `pokemon_agent.py` - Applies profile settings
 
+### 10. Enhanced Logging and Analytics (v0.0.6)
+**What Changed:**
+- Comprehensive metrics tracking system with three metric types:
+  - **Performance Metrics**: Step timing, OCR timing, LLM timing with averages and trends
+  - **Cache Metrics**: Hit rate, evictions, utilization tracking
+  - **LLM Metrics**: Call count, latency, token usage, success rate, errors, timeouts
+- Metrics automatically collected during execution
+- Human-readable summary displayed at end of runs
+- Metrics saved to JSON log files for analysis
+- Rolling averages for recent performance trends
+
+**Impact:** 
+- Easy identification of performance bottlenecks
+- Data-driven optimization of cache and LLM settings
+- Better understanding of agent behavior and efficiency
+- Historical performance tracking via log files
+
+**Files Modified:**
+- `metrics.py` - New metrics tracking module (created)
+- `pokemon_agent.py` - Integrated step timing and cache tracking
+- `llm_provider.py` - Integrated LLM call tracking
+- `game_state.py` - Integrated OCR timing tracking
+- `llm_optimizer.py` - Added cache eviction tracking
+- `main.py` - Initialize metrics and display summary
+- `docs/METRICS_GUIDE.md` - Comprehensive metrics documentation (created)
+- `docs/LOGGING_GUIDE.md` - Updated with metrics section
+
 ## Notes
 
 - OCR improvements may be slower due to scaling, but should be more accurate
 - Pattern detection may need tuning based on observed behavior
 - Game state detection relies on text patterns - may need refinement
 - Configuration profiles make it easy to experiment with different strategies
+- Metrics tracking has minimal performance overhead (<1% impact)
 - All improvements are backward compatible
 

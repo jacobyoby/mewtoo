@@ -52,8 +52,14 @@ class TestMemoryReader:
     
     def test_read_byte_fallback(self, mock_pyboy):
         """Test read_byte fallback when memory access fails."""
-        # Remove memory attribute
-        delattr(mock_pyboy, 'memory')
+        # Remove memory attribute and mb attribute
+        if hasattr(mock_pyboy, 'memory'):
+            delattr(mock_pyboy, 'memory')
+        if hasattr(mock_pyboy, 'mb'):
+            delattr(mock_pyboy, 'mb')
+        # Ensure no get_memory_value method
+        if hasattr(mock_pyboy, 'get_memory_value'):
+            delattr(mock_pyboy, 'get_memory_value')
         
         reader = MemoryReader(mock_pyboy)
         result = reader.read_byte(0xD362)
@@ -127,6 +133,12 @@ class TestMemoryReader:
         def getitem(address):
             return sample_memory_data.get(address, 0)
         mock_pyboy.memory.__getitem__ = Mock(side_effect=getitem)
+        
+        # Level is at PARTY_POKEMON_START + POKEMON_LEVEL offset
+        # PARTY_POKEMON_START = 0xD16B, POKEMON_LEVEL = 33
+        # So level address = 0xD16B + 33 = 0xD18C (not 0xD19C in sample data)
+        # Update sample data to have level at correct address
+        sample_memory_data[0xD18C] = 50  # Level at correct offset (0xD16B + 33)
         
         reader = MemoryReader(mock_pyboy)
         party = reader.read_pokemon_party()

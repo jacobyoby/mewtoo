@@ -1,7 +1,9 @@
 """AI Agent for playing Pokemon Red.
 
-Version: 0.0.5.1
+Version: 0.0.7
 """
+import time
+import random
 from typing import Optional, List, Dict, Tuple
 from collections import deque, Counter
 from llm_provider import LLMProvider
@@ -10,6 +12,7 @@ from llm_optimizer import ActionCache, PromptOptimizer, RepetitionDetector
 from agent_strategy import AgentStrategy, GameEvent
 from config import get_config
 from pyboy import PyBoy
+from metrics import MetricsCollector
 
 
 class PokemonAgent:
@@ -19,7 +22,7 @@ class PokemonAgent:
 No explanations. Just the action."""
 
     def __init__(self, llm_provider: LLMProvider, game_state: GameState, use_cache: bool = True,
-                 use_strategy: bool = True, goal_check_interval: int = 5):
+                 use_strategy: bool = True, goal_check_interval: int = 5, metrics: Optional[MetricsCollector] = None):
         """Initialize Pokemon Agent.
         
         Args:
@@ -28,6 +31,7 @@ No explanations. Just the action."""
             use_cache: Enable action caching (default: True, can be overridden by config)
             use_strategy: Enable goal-oriented strategy (default: True, can be overridden by config)
             goal_check_interval: Check goal completion every N steps (default: 5, higher = less frequent)
+            metrics: Optional metrics collector instance
         """
         config = get_config()
         agent_config = config.get_agent_config()
@@ -39,8 +43,13 @@ No explanations. Just the action."""
         self.action_history: List[str] = []
         self.max_history = agent_config.get("max_history", 20)  # Increased to 20 for diversity checking
         self.action_cache = ActionCache(max_size=perf_config.get("cache_max_size", 100)) if use_cache else None
+        self.loading_state_steps = 0  # Track consecutive steps in loading state
+        self.blank_screen_steps = 0  # Track consecutive steps with blank screen (regardless of state)
+        self.new_game_started = False  # Track if we've started a new game (prevent backing out)
+        self.character_creation_steps = 0  # Track steps in character creation
         self.prompt_optimizer = PromptOptimizer()
         self.repetition_detector = RepetitionDetector()
+        self.metrics = metrics  # Store metrics collector
         
         # Get strategy config for AgentStrategy initialization
         strategy_config = config.get_strategy_config()
@@ -63,6 +72,45 @@ No explanations. Just the action."""
         # Movement validation tracking
         self.movement_failures = {'UP': 0, 'DOWN': 0, 'LEFT': 0, 'RIGHT': 0}
         self.blocked_directions = set()
+    
+    def _save_stuck_screenshot(self, step_count: int, reason: str, details: Optional[Dict] = None):
+        """Save screenshot when agent is stuck.
+        
+        Args:
+            step_count: Current step count
+            reason: Reason for being stuck (e.g., 'multi_modal_stuck', 'repetitive_action', etc.)
+            details: Optional dictionary with additional details about the stuck state
+        """
+        try:
+            # Check if screen is blank before saving screenshot
+            screen_image = self.game_state.get_screen_image()
+            blank_info = self.game_state.detect_blank_screen(screen_image)
+            
+            if blank_info['is_blank']:
+                # Screen is blank - don't save screenshot, but log the issue
+                print(f"[STUCK] Skipping screenshot - screen is blank ({blank_info['blank_type']}, {blank_info['white_percentage']:.1%} white, {blank_info['black_percentage']:.1%} black)")
+                print(f"[STUCK] Stuck reason: {reason}, Step: {step_count}")
+                if details:
+                    print(f"[STUCK] Details: {details}")
+                return
+            
+            # Screen has content - save screenshot
+            # Create descriptive filename
+            filename = f"stuck_{reason}_step{step_count}"
+            if details:
+                # Add key details to filename
+                if 'action' in details:
+                    filename += f"_{details['action']}"
+                if 'stuck_count' in details:
+                    filename += f"_count{details['stuck_count']}"
+            filename += ".png"
+            
+            screenshot_path = self.game_state.save_screenshot(filename=filename)
+            print(f"[STUCK] Saved screenshot ({reason}): {screenshot_path}")
+            if details:
+                print(f"[STUCK] Details: {details}")
+        except Exception as e:
+            print(f"[STUCK] Failed to save screenshot: {e}")
     
     def get_prompt(self) -> str:
         """Build optimized prompt for the LLM with enhanced context."""
@@ -123,9 +171,102 @@ No explanations. Just the action."""
         step_count = len(self.action_history)
         game_state = game_info.get('game_state', 'unknown')
         
+        # CRITICAL: Check for blank screen FIRST, before other logic
+        # Blank screens often indicate transitions that need A presses
+        screen_image = self.game_state.get_screen_image()
+        blank_info = self.game_state.detect_blank_screen(screen_image)
+        
+        if blank_info['is_blank']:
+            self.blank_screen_steps += 1
+            # Blank screen detected - handle it aggressively
+            # Blank screens during gameplay usually need A presses to progress
+            if self.blank_screen_steps > 20:
+                # Stuck on blank screen for too long - try aggressive actions
+                actions_to_try = ['A', 'START', 'A', 'A']  # More A presses
+                action_idx = (self.blank_screen_steps - 21) % len(actions_to_try)
+                print(f"[BLANK_SCREEN] Step {step_count}: Blank screen for {self.blank_screen_steps} steps, trying {actions_to_try[action_idx]}")
+                return actions_to_try[action_idx]
+            elif self.blank_screen_steps > 10:
+                # After 10 steps on blank screen, press A more aggressively
+                print(f"[BLANK_SCREEN] Step {step_count}: Blank screen for {self.blank_screen_steps} steps, pressing A")
+                return 'A'
+            elif self.blank_screen_steps > 3:
+                # After 3 steps, start pressing A to progress through transition
+                return 'A'
+            else:
+                # Early blank screen - wait briefly then press A
+                return 'WAIT 1' if self.blank_screen_steps == 1 else 'A'
+        else:
+            # Screen has content - reset blank screen counter
+            if self.blank_screen_steps > 0:
+                self.blank_screen_steps = 0
+        
+        # Detect if we're in character creation/naming screens
+        # These screens appear after selecting "New Game"
+        screen_text_upper = screen_text.upper()
+        is_character_creation = (
+            any(word in screen_text_upper for word in ["NAME", "WHAT", "BOY", "GIRL", "ARE YOU A BOY", "ARE YOU A GIRL"]) or
+            (game_state == 'menu' and step_count < 50)  # Early menu after title screen is likely character creation
+        )
+        
+        # Track if we've started a new game
+        if not self.new_game_started:
+            # Check if we've moved past title screen (indicates new game started)
+            if game_state != 'title_screen' and step_count > 5:
+                # Check if we're in character creation or early game
+                if is_character_creation or game_state in ['menu', 'dialog']:
+                    self.new_game_started = True
+                    self.character_creation_steps = 0
+        
+        # Track character creation persistence
+        if is_character_creation or (self.new_game_started and self.character_creation_steps < 50):
+            self.character_creation_steps += 1
+        else:
+            if self.character_creation_steps > 0:
+                self.character_creation_steps = 0
+        
+        # Track loading state persistence
+        if game_state == 'loading':
+            self.loading_state_steps += 1
+        else:
+            self.loading_state_steps = 0
+        
+        # Handle loading state - blank screens need special handling
+        if game_state == 'loading':
+            # Check if screen is actually blank
+            screen_image = self.game_state.get_screen_image()
+            blank_info = self.game_state.detect_blank_screen(screen_image)
+            
+            if blank_info['is_blank']:
+                # Screen is blank - need to wait or progress through transition
+                if self.loading_state_steps > 30:
+                    # Stuck on blank screen for too long - try aggressive actions
+                    # Cycle through A, START, B to try to progress
+                    actions_to_try = ['A', 'START', 'A', 'A']  # More A presses for dialog transitions
+                    action_idx = (self.loading_state_steps - 31) % len(actions_to_try)
+                    return actions_to_try[action_idx]
+                elif self.loading_state_steps > 15:
+                    # After 15 steps on blank screen, start pressing A more aggressively
+                    # Blank screens often indicate transitions that need A presses
+                    return 'A'
+                elif self.loading_state_steps > 5:
+                    # After 5 steps, try pressing A to progress through transition
+                    return 'A'
+                else:
+                    # Early in loading - wait a bit for screen to load
+                    return 'WAIT 2'  # Wait slightly longer
+            else:
+                # Screen has content but state is "loading" - might be transitioning
+                # Try pressing A to progress
+                if self.loading_state_steps > 10:
+                    return 'A'
+                else:
+                    return 'WAIT 1'
+        
         # Detect if we're stuck pressing A repeatedly (even if not detected as dialogue)
         # This handles cases where OCR is garbled and dialogue isn't detected
-        if len(self.action_history) >= 10:
+        # BUT: Don't press B during character creation - it will cancel new game!
+        if len(self.action_history) >= 10 and not (self.new_game_started and self.character_creation_steps < 50):
             recent_actions = self.action_history[-10:]
             a_count = sum(1 for a in recent_actions if a == "A")
             # If 7+ out of last 10 actions are A, likely stuck in dialogue
@@ -140,28 +281,28 @@ No explanations. Just the action."""
                     if hasattr(self, '_last_state_key'):
                         if self._last_state_key == current_state_key:
                             # Stuck pressing A in same state - save screenshot and try B to break out
-                            if not hasattr(self, '_last_stuck_screenshot_step') or step_count - self._last_stuck_screenshot_step > 10:
-                                try:
-                                    screenshot_path = self.game_state.save_screenshot(
-                                        filename=f"stuck_A_repetition_step{step_count}.png"
-                                    )
-                                    print(f"[STUCK] Saved screenshot: {screenshot_path}")
-                                    self._last_stuck_screenshot_step = step_count
-                                except Exception as e:
-                                    print(f"[STUCK] Failed to save screenshot: {e}")
+                            self._save_stuck_screenshot(
+                                step_count=step_count,
+                                reason="A_repetition_same_state",
+                                details={
+                                    'action': 'A',
+                                    'state_key': current_state_key,
+                                    'screen_text': screen_text[:50]
+                                }
+                            )
                             return "B"
                     else:
                         # No previous state, but pressing A repeatedly with text = likely dialogue
                         # Save screenshot and try B to break out
-                        if not hasattr(self, '_last_stuck_screenshot_step') or step_count - self._last_stuck_screenshot_step > 10:
-                            try:
-                                screenshot_path = self.game_state.save_screenshot(
-                                    filename=f"stuck_A_repetition_step{step_count}.png"
-                                )
-                                print(f"[STUCK] Saved screenshot: {screenshot_path}")
-                                self._last_stuck_screenshot_step = step_count
-                            except Exception as e:
-                                print(f"[STUCK] Failed to save screenshot: {e}")
+                        self._save_stuck_screenshot(
+                            step_count=step_count,
+                            reason="A_repetition_no_state",
+                            details={
+                                'action': 'A',
+                                'screen_text': screen_text[:50],
+                                'game_state': game_state
+                            }
+                        )
                         return "B"
         
         # First action fallback - use strategy or simple heuristics to avoid LLM call
@@ -188,10 +329,18 @@ No explanations. Just the action."""
             elif game_state == 'dialog':
                 return "A"
             elif game_state == 'menu':
+                # During character creation, always press A (never B)
+                if is_character_creation or (self.new_game_started and self.character_creation_steps < 50):
+                    return "A"
                 return "A"
+            elif game_state == 'loading':
+                return "WAIT 1"  # Wait for loading to complete
             elif game_state == 'overworld':
                 return "UP"  # Default exploration
             else:
+                # During character creation, always press A
+                if is_character_creation or (self.new_game_started and self.character_creation_steps < 50):
+                    return "A"
                 return "A"  # Safe default
         
         # Check for action diversity FIRST (before same-state optimization)
@@ -207,7 +356,16 @@ No explanations. Just the action."""
         if is_low_diversity and dominant_action:
             # Handle dialogue/menu states differently
             if game_state in ['dialog', 'menu']:
-                # If stuck pressing A in dialogue, try B or wait
+                # CRITICAL: Don't press B during character creation - it will cancel new game!
+                if self.new_game_started and self.character_creation_steps < 50:
+                    # In character creation - only press A, never B
+                    if dominant_action == "A" and len(self.action_history) >= 3:
+                        # Even if pressing A repeatedly, continue - character creation needs multiple A presses
+                        return "A"
+                    else:
+                        return "A"  # Always A during character creation
+                
+                # If stuck pressing A in dialogue, try B or wait (but not during character creation)
                 if dominant_action == "A":
                     # Track how long we've been in same dialogue state
                     state_key = f"{game_state}|{game_info.get('player_position', (0,0))}"
@@ -218,26 +376,27 @@ No explanations. Just the action."""
                             recent_as = sum(1 for a in self.action_history[-10:] if a == "A")
                             if recent_as >= 7:  # 7+ A presses in last 10 actions
                                 # Save screenshot when stuck in dialogue
-                                if not hasattr(self, '_last_stuck_screenshot_step') or step_count - self._last_stuck_screenshot_step > 10:
-                                    try:
-                                        screenshot_path = self.game_state.save_screenshot(
-                                            filename=f"stuck_dialog_A_step{step_count}.png"
-                                        )
-                                        print(f"[STUCK] Saved screenshot: {screenshot_path}")
-                                        self._last_stuck_screenshot_step = step_count
-                                    except Exception as e:
-                                        print(f"[STUCK] Failed to save screenshot: {e}")
+                                self._save_stuck_screenshot(
+                                    step_count=step_count,
+                                    reason="dialog_A_repetition",
+                                    details={
+                                        'action': 'A',
+                                        'recent_as': recent_as,
+                                        'state_key': state_key,
+                                        'game_state': game_state
+                                    }
+                                )
                                 return "B"
                     # Save screenshot when stuck in dialogue
-                    if not hasattr(self, '_last_stuck_screenshot_step') or step_count - self._last_stuck_screenshot_step > 10:
-                        try:
-                            screenshot_path = self.game_state.save_screenshot(
-                                filename=f"stuck_dialog_A_step{step_count}.png"
-                            )
-                            print(f"[STUCK] Saved screenshot: {screenshot_path}")
-                            self._last_stuck_screenshot_step = step_count
-                        except Exception as e:
-                            print(f"[STUCK] Failed to save screenshot: {e}")
+                    self._save_stuck_screenshot(
+                        step_count=step_count,
+                        reason="dialog_stuck",
+                        details={
+                            'action': 'A',
+                            'game_state': game_state,
+                            'screen_text': screen_text[:50]
+                        }
+                    )
                     return "B"  # Try B to break out of dialogue
                 elif dominant_action == "B":
                     # Too many B presses, try A
@@ -245,17 +404,16 @@ No explanations. Just the action."""
             else:
                 # For movement actions, force exploration
                 # Save screenshot when stuck in repetitive movement
-                if not hasattr(self, '_last_stuck_screenshot_step') or step_count - self._last_stuck_screenshot_step > 10:
-                    try:
-                        screenshot_path = self.game_state.save_screenshot(
-                            filename=f"stuck_movement_{dominant_action}_step{step_count}.png"
-                        )
-                        print(f"[STUCK] Saved screenshot (repetitive {dominant_action}): {screenshot_path}")
-                        self._last_stuck_screenshot_step = step_count
-                    except Exception as e:
-                        print(f"[STUCK] Failed to save screenshot: {e}")
+                self._save_stuck_screenshot(
+                    step_count=step_count,
+                    reason="repetitive_movement",
+                    details={
+                        'dominant_action': dominant_action,
+                        'game_state': game_state,
+                        'is_low_diversity': is_low_diversity
+                    }
+                )
                 
-                import random
                 movement_actions = ['UP', 'DOWN', 'LEFT', 'RIGHT']
                 # Exclude the dominant action and blocked directions
                 alternative_actions = [
@@ -295,15 +453,16 @@ No explanations. Just the action."""
                         # After 10+ steps in same dialogue, save screenshot and try B if we've been pressing A
                         if last_action == "A":
                             # Save screenshot when stuck in same dialogue for too long
-                            if not hasattr(self, '_last_stuck_screenshot_step') or step_count - self._last_stuck_screenshot_step > 10:
-                                try:
-                                    screenshot_path = self.game_state.save_screenshot(
-                                        filename=f"stuck_same_state_step{step_count}.png"
-                                    )
-                                    print(f"[STUCK] Saved screenshot (same state {self._same_state_count} steps): {screenshot_path}")
-                                    self._last_stuck_screenshot_step = step_count
-                                except Exception as e:
-                                    print(f"[STUCK] Failed to save screenshot: {e}")
+                            self._save_stuck_screenshot(
+                                step_count=step_count,
+                                reason="same_state_persistent",
+                                details={
+                                    'same_state_count': self._same_state_count,
+                                    'state_key': state_key,
+                                    'game_state': game_state,
+                                    'screen_text': screen_text[:50]
+                                }
+                            )
                             return "B"
                         else:
                             return "A"
@@ -327,7 +486,21 @@ No explanations. Just the action."""
                 cache_key_text, game_info['frame_count'], self.action_history
             )
             if cached_action:
+                # Update metrics for cache hit
+                if self.metrics:
+                    self.metrics.cache.record_hit()
+                    self.metrics.cache.update_size(
+                        len(self.action_cache.cache),
+                        self.action_cache.max_size
+                    )
                 return cached_action
+            # Update metrics for cache miss
+            if self.metrics:
+                self.metrics.cache.record_miss()
+                self.metrics.cache.update_size(
+                    len(self.action_cache.cache),
+                    self.action_cache.max_size
+                )
         
         # Check for repetition (before expensive LLM call)
         if len(self.action_history) >= 3:
@@ -356,13 +529,24 @@ No explanations. Just the action."""
             prompt = self.get_prompt()
             
             # Call LLM with limited tokens for faster response
+            llm_start_time = time.time()
             response = self.llm_provider.generate(
                 prompt=prompt,
                 system_prompt=self.prompt_optimizer.optimize_system_prompt(),
                 max_tokens=self.max_tokens  # Configurable token limit
             )
+            llm_duration = time.time() - llm_start_time
+            
+            # Record LLM metrics
+            if self.metrics:
+                self.metrics.performance.record_llm_time(llm_duration)
+                # LLM provider should have recorded detailed metrics, but we track timing here too
+                self.metrics.llm.record_call(llm_duration)
         except Exception as e:
             # If LLM call fails, use fallback action
+            llm_duration = time.time() - llm_start_time if 'llm_start_time' in locals() else 0.0
+            if self.metrics:
+                self.metrics.llm.record_call(llm_duration, error=True)
             print(f"Warning: LLM call failed: {e}")
             print("Using fallback action based on game state")
             
@@ -386,6 +570,9 @@ No explanations. Just the action."""
             if game_state == 'dialog':
                 return "A"
             elif game_state == 'menu':
+                # During character creation, always press A (never B)
+                if self.new_game_started and self.character_creation_steps < 50:
+                    return "A"
                 return "A"
             elif game_state == 'title_screen':
                 return "START"
@@ -397,12 +584,24 @@ No explanations. Just the action."""
         # Extract action from response - optimized for short responses
         response_clean = response.strip().upper()
         
+        # CRITICAL: Final check - prevent B during character creation
+        # This catches any B that might have slipped through from LLM
+        if self.new_game_started and self.character_creation_steps < 50:
+            if response_clean == "B" or response_clean.startswith("B"):
+                print(f"[CHARACTER_CREATION] Blocked B press from LLM, using A instead (step {step_count})")
+                response_clean = "A"
+        
         # Direct match for common actions
         valid_buttons = ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "SELECT", "START"]
         
         # Check for direct match first (most common case)
         for button in valid_buttons:
             if button in response_clean:
+                # CRITICAL: Block B during character creation even if found in response
+                if button == "B" and self.new_game_started and self.character_creation_steps < 50:
+                    print(f"[CHARACTER_CREATION] Blocked B button, using A instead (step {step_count})")
+                    action = "A"
+                    break
                 # Extract the button
                 if ',' in response_clean:
                     # Handle comma-separated
@@ -464,6 +663,8 @@ No explanations. Just the action."""
         Returns:
             Dictionary with step information
         """
+        step_start_time = time.time()
+        
         # Get current game state before action
         pre_state = self.game_state.get_game_info()
         pre_frame = pre_state['frame_count']
@@ -492,7 +693,20 @@ No explanations. Just the action."""
         
         # Force exploration when stuck (before getting action)
         if self.stuck_count > 5:
-            import random
+            # Only save screenshot if screen is not blank
+            screen_image = self.game_state.get_screen_image()
+            blank_info = self.game_state.detect_blank_screen(screen_image)
+            if not blank_info['is_blank']:
+                # Save screenshot when forcing exploration due to high stuck count
+                self._save_stuck_screenshot(
+                    step_count=self.step_count,
+                    reason="forced_exploration",
+                    details={
+                        'stuck_count': self.stuck_count,
+                        'blocked_directions': list(self.blocked_directions),
+                        'pre_game_state': pre_game_state
+                    }
+                )
             movement_actions = ['UP', 'DOWN', 'LEFT', 'RIGHT']
             # Exclude blocked directions
             available_actions = [a for a in movement_actions if a not in self.blocked_directions]
@@ -576,6 +790,18 @@ No explanations. Just the action."""
         
         if is_stuck:
             self.stuck_count += 1
+            # Save screenshot when stuck
+            self._save_stuck_screenshot(
+                step_count=self.step_count,
+                reason="multi_modal_stuck",
+                details={
+                    'stuck_signals': stuck_signals,
+                    'stuck_count': self.stuck_count,
+                    'action': action,
+                    'game_state': post_game_state,
+                    'position': post_position
+                }
+            )
         else:
             self.stuck_count = 0
             self.last_game_state = current_state_key
@@ -601,6 +827,11 @@ No explanations. Just the action."""
         progress_summary = None
         if self.strategy:
             progress_summary = self.strategy.get_progress_summary()
+        
+        # Record step timing
+        step_duration = time.time() - step_start_time
+        if self.metrics:
+            self.metrics.performance.record_step_time(step_duration)
         
         return {
             "action": action,
@@ -683,7 +914,6 @@ No explanations. Just the action."""
                     'LEFT': ['UP', 'DOWN'],
                     'RIGHT': ['UP', 'DOWN']
                 }
-                import random
                 alt_direction = random.choice(perpendicular[action])
                 return False, alt_direction
         else:

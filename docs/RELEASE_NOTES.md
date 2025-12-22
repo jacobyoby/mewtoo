@@ -1,5 +1,118 @@
 # Release Notes
 
+## Version 0.0.7 - Enhanced State Detection and Blank Screen Handling (In Progress)
+
+This release focuses on improving the agent's ability to progress through the early game sequence, particularly character creation and transitions.
+
+### Key Features
+
+- **Blank Screen Detection**: Automatic detection of blank screens (>80% white/black) with proper handling
+- **State Detection Validation**: State detection now validates screen content before reporting state
+- **Character Creation Protection**: Multiple layers of protection prevent agent from backing out during character creation
+- **Enhanced Stuck Detection**: Automatic screenshot saving when stuck (only for screens with content)
+- **Improved Blank Screen Handling**: Aggressive handling of blank screens during gameplay transitions
+
+### Improvements
+
+- State detection validates screen content before reporting "overworld" state
+- Blank screens correctly detected and reported as "loading" state
+- Agent successfully reaches character creation/naming screens
+- B button presses blocked during character creation (prevents canceling new game)
+- Screenshots automatically saved when agent gets stuck (skips blank screens)
+- Blank screen handling with progressive A-press strategy for transitions
+
+### Bug Fixes
+
+- Fixed false "overworld" state detection on blank screens
+- Fixed agent backing out after starting new game
+- Fixed screenshot saving for blank screens (now skipped)
+
+### Files Modified
+
+- `game_state.py` - Added `detect_blank_screen()` method, enhanced state detection
+- `pokemon_agent.py` - Added blank screen handling, character creation protection, screenshot saving
+- `llm_optimizer.py` - Updated prompts to warn against B during character creation
+
+### Usage
+
+The agent now handles blank screens automatically. You'll see console messages like:
+```
+[BLANK_SCREEN] Step 150: Blank screen for 5 steps, pressing A
+[CHARACTER_CREATION] Blocked B press, using A instead
+[STUCK] Saved screenshot (multi_modal_stuck): logs/screenshots/stuck_multi_modal_stuck_step5.png
+```
+
+## Version 0.0.6 - Enhanced Logging and Analytics (2025-12-21)
+
+This release introduces comprehensive metrics tracking to help optimize agent performance and understand system behavior.
+
+### Key Features
+
+- **Performance Metrics**: Track step timing, OCR timing, and LLM timing with averages, min/max, and recent trends
+- **Cache Statistics**: Monitor cache hit rates, evictions, and utilization
+- **LLM Statistics**: Track call count, latency, token usage, success rate, errors, and timeouts
+- **Automatic Collection**: Metrics are automatically collected during execution
+- **Human-Readable Summaries**: Metrics summary displayed at end of each run
+- **JSON Logging**: All metrics saved to log files for analysis
+
+### New Components
+
+- **`metrics.py`**: New metrics tracking module with `MetricsCollector`, `PerformanceMetrics`, `LLMMetrics`, and `CacheMetrics` classes
+- **Integration**: Metrics integrated into `pokemon_agent.py`, `llm_provider.py`, and `game_state.py`
+- **Logging**: Metrics automatically included in JSON log files
+
+### Usage
+
+Metrics are enabled by default. At the end of each run, you'll see a summary like:
+
+```
+======================================================================
+METRICS SUMMARY
+======================================================================
+Runtime: 14.45s
+
+Performance:
+  Total Steps: 500
+  Avg Step Time: 20.89ms
+  Recent Avg Step Time: 0.64ms
+  OCR Calls: 0
+  Avg OCR Time: 0.00ms
+
+LLM Statistics:
+  Total Calls: 42
+  Avg Latency: 484.41ms
+  Success Rate: 100.0%
+
+Cache Statistics:
+  Hits: 205
+  Misses: 26
+  Hit Rate: 88.7%
+======================================================================
+```
+
+### Documentation
+
+- Created `docs/METRICS_GUIDE.md` with comprehensive metrics documentation
+- Updated `README.md` with metrics overview
+- Updated `docs/LOGGING_GUIDE.md` with metrics information
+
+### Testing
+
+- Added 19 unit tests for metrics module
+- Added 11 integration tests for metrics system
+- All 95 tests passing
+
+### What's Changed
+
+- Added `metrics.py` module
+- Updated `pokemon_agent.py` to track step timing and cache operations
+- Updated `llm_provider.py` to track LLM call latency and tokens
+- Updated `game_state.py` to track OCR timing
+- Updated `main.py` to initialize and log metrics
+- Updated `llm_optimizer.py` to track cache evictions
+
+---
+
 ## Version 0.0.5.1 - Bug Fix (2025-12-19)
 
 This patch release fixes an import error that prevented the config module from loading.
@@ -173,7 +286,7 @@ This project is for educational purposes. Ensure you have legal rights to use th
 
 ---
 
-**Current Version**: 0.0.5  
+**Current Version**: 0.0.7  
 **Last Updated**: December 19, 2025  
 **Status**: Stable
 

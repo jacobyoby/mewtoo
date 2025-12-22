@@ -1,9 +1,9 @@
 """LLM Provider abstraction for Mewtwo."""
+import time
 from abc import ABC, abstractmethod
 from typing import Optional
 import anthropic
 import ollama
-import signal
 import threading
 
 
@@ -25,14 +25,16 @@ class LLMProvider(ABC):
 class OllamaProvider(LLMProvider):
     """Ollama provider for local LLM inference."""
     
-    def __init__(self, model: str = "llama3.2"):
+    def __init__(self, model: str = "llama3.2", metrics=None):
         """Initialize Ollama provider.
         
         Args:
             model: Model name to use (default: llama3.2)
+            metrics: Optional metrics collector instance
         """
         self.model = model
         self.client = ollama.Client()
+        self.metrics = metrics
         
         # Validate model exists
         try:
@@ -124,6 +126,7 @@ class OllamaProvider(LLMProvider):
             "temperature": 0.1,  # Lower temperature for more deterministic responses
         }
         
+        start_time = time.time()
         try:
             # Add timeout protection (30 seconds max)
             response = self._call_with_timeout(
@@ -134,10 +137,31 @@ class OllamaProvider(LLMProvider):
                 ),
                 timeout=30
             )
+            latency = time.time() - start_time
+            
+            # Extract token count if available
+            tokens = None
+            if isinstance(response, dict):
+                # Ollama may include token counts in response
+                if "eval_count" in response:
+                    tokens = response.get("eval_count")
+                elif "prompt_eval_count" in response and "eval_count" in response:
+                    tokens = response.get("prompt_eval_count", 0) + response.get("eval_count", 0)
+            
+            # Record metrics
+            if self.metrics:
+                self.metrics.llm.record_call(latency, tokens=tokens)
+            
             return response["message"]["content"]
         except TimeoutError:
+            latency = time.time() - start_time
+            if self.metrics:
+                self.metrics.llm.record_call(latency, timeout=True)
             raise ValueError(f"LLM call timed out after 30 seconds. Model: {self.model}")
         except Exception as e:
+            latency = time.time() - start_time
+            if self.metrics:
+                self.metrics.llm.record_call(latency, error=True)
             error_msg = str(e)
             if "not found" in error_msg.lower() or "404" in error_msg:
                 available_models = self._list_available_models()
@@ -152,16 +176,18 @@ class OllamaProvider(LLMProvider):
 class ClaudeProvider(LLMProvider):
     """Anthropic Claude provider for cloud-based inference."""
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-5-sonnet-20241022"):
+    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-5-sonnet-20241022", metrics=None):
         """Initialize Claude provider.
         
         Args:
             api_key: Anthropic API key (if None, reads from environment)
             model: Model name to use
+            metrics: Optional metrics collector instance
         """
         self.api_key = api_key
         self.model = model
         self.client = anthropic.Anthropic(api_key=api_key)
+        self.metrics = metrics
     
     def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 10) -> str:
         """Generate a response using Claude.
@@ -171,11 +197,31 @@ class ClaudeProvider(LLMProvider):
             system_prompt: System prompt
             max_tokens: Maximum tokens to generate (default: 10 for faster responses)
         """
-        response = self.client.messages.create(
-            model=self.model,
-            max_tokens=max_tokens,  # Reduced from 4096 for faster responses
-            system=system_prompt or "",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return response.content[0].text
+        start_time = time.time()
+        try:
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens,  # Reduced from 4096 for faster responses
+                system=system_prompt or "",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            latency = time.time() - start_time
+            
+            # Extract token count from Claude response
+            tokens = None
+            if hasattr(response, 'usage'):
+                usage = response.usage
+                if hasattr(usage, 'input_tokens') and hasattr(usage, 'output_tokens'):
+                    tokens = usage.input_tokens + usage.output_tokens
+            
+            # Record metrics
+            if self.metrics:
+                self.metrics.llm.record_call(latency, tokens=tokens)
+            
+            return response.content[0].text
+        except Exception as e:
+            latency = time.time() - start_time
+            if self.metrics:
+                self.metrics.llm.record_call(latency, error=True)
+            raise
 

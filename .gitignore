@@ -23,19 +23,45 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
+
+# Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
+.hypothesis/
+*.cover
+*.py,cover
+.cache
+nosetests.xml
+coverage.xml
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Linting
+.ruff_cache/
+.flake8
 
 # Environment variables
 .env
 .env.local
+.env.*.local
 
 # ROM files (copyrighted)
 *.gb
 *.gbc
 *.rom
 *.gb.ram
+*.sav
+*.state
 
 # IDE
 .vscode/
@@ -43,26 +69,59 @@ htmlcov/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
+.claude/
+.cursor/
+
+# Jupyter Notebook
+.ipynb_checkpoints
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
 # Logs
 *.log
-
-# Agent logs
 logs/
 *.json
 !package.json
 !package-lock.json
+!tsconfig.json
+!pytest.ini
+# Keep validation results in logs/validation/ if needed
+logs/validation/
 
 # Screenshots
 logs/screenshots/
+validation_screenshots/
 *.png
 *.jpg
 *.jpeg
+*.gif
+*.bmp
+*.tiff
 !docs/**/*.png
 !docs/**/*.jpg
 !docs/**/*.jpeg
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
+*.orig
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 

@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image
 import pytesseract
 import os
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from pyboy import PyBoy
@@ -28,7 +29,7 @@ class GameState:
     
     def __init__(self, pyboy: PyBoy, ocr_enabled: bool = True, ocr_interval: int = 50, 
                  memory_enabled: bool = True, use_enhanced_ocr: bool = True,
-                 memory_check_interval: int = 1, ocr_scale_factor: int = 6):
+                 memory_check_interval: int = 1, ocr_scale_factor: int = 6, metrics=None):
         """Initialize GameState with PyBoy instance.
         
         Args:
@@ -40,6 +41,7 @@ class GameState:
             memory_check_interval: Check memory every N steps (default: 1, higher = less frequent)
             ocr_scale_factor: Scaling factor for OCR (default: 6, higher = better OCR but slower)
                              In headless mode, higher values help OCR accuracy significantly
+            metrics: Optional metrics collector instance
         """
         self.pyboy = pyboy
         self.screen_width = 160
@@ -55,6 +57,7 @@ class GameState:
         self.last_ocr_frame = 0
         self.last_memory_check_step = 0
         self.cached_memory_state = None
+        self.metrics = metrics  # Store metrics collector
         
         # Initialize OCR enhancer with scale factor
         if self.use_enhanced_ocr:
@@ -78,6 +81,59 @@ class GameState:
         """Get current screen as numpy array."""
         screen = self.pyboy.screen.image
         return np.array(screen)
+    
+    def detect_blank_screen(self, image: Optional[np.ndarray] = None, 
+                           white_threshold: float = 0.8, black_threshold: float = 0.8) -> Dict:
+        """Detect if screen is mostly blank (white or black).
+        
+        Args:
+            image: Screen image (optional, will get current if not provided)
+            white_threshold: Percentage threshold for white screen (default: 0.8 = 80%)
+            black_threshold: Percentage threshold for black screen (default: 0.8 = 80%)
+            
+        Returns:
+            Dictionary with blank screen detection results
+        """
+        if image is None:
+            image = self.get_screen_image()
+        
+        if image is None or len(image.shape) < 2:
+            return {'is_blank': True, 'blank_type': 'invalid', 'white_percentage': 0.0, 'black_percentage': 0.0}
+        
+        # Extract RGB channels (ignore alpha if present)
+        if len(image.shape) == 3:
+            rgb = image[:, :, :3] if image.shape[2] >= 3 else image
+        else:
+            rgb = image
+        
+        total_pixels = rgb.shape[0] * rgb.shape[1]
+        
+        # Count white pixels (>240 in all channels)
+        white_pixels = np.sum(np.all(rgb > 240, axis=2))
+        white_percentage = white_pixels / total_pixels
+        
+        # Count black pixels (<15 in all channels)
+        black_pixels = np.sum(np.all(rgb < 15, axis=2))
+        black_percentage = black_pixels / total_pixels
+        
+        # Determine blank type
+        is_blank = False
+        blank_type = 'none'
+        
+        if white_percentage >= white_threshold:
+            is_blank = True
+            blank_type = 'white'
+        elif black_percentage >= black_threshold:
+            is_blank = True
+            blank_type = 'black'
+        
+        return {
+            'is_blank': is_blank,
+            'blank_type': blank_type,
+            'white_percentage': white_percentage,
+            'black_percentage': black_percentage,
+            'unique_colors': len(np.unique(rgb.reshape(-1, rgb.shape[-1]), axis=0)) if len(rgb.shape) == 3 else 1
+        }
     
     def save_screenshot(self, filename: Optional[str] = None, directory: str = "logs/screenshots") -> str:
         """Save a screenshot of the current screen.
@@ -171,7 +227,14 @@ class GameState:
         # Use enhanced OCR if available
         if self.use_enhanced_ocr and self.ocr_enhancer:
             try:
+                ocr_start_time = time.time()
                 text = self.ocr_enhancer.extract_text_enhanced(screen_image, prioritize_dialog=True)
+                ocr_duration = time.time() - ocr_start_time
+                
+                # Record OCR timing
+                if self.metrics:
+                    self.metrics.performance.record_ocr_time(ocr_duration)
+                
                 self.last_ocr_text = text
                 self.last_ocr_frame = self.pyboy.frame_count
                 return text
@@ -204,6 +267,7 @@ class GameState:
         full_region = binary
         
         # Extract text with multiple PSM modes for better results
+        ocr_start_time = time.time()
         try:
             # Try dialog region first (PSM 7 = single text line)
             text_dialog = pytesseract.image_to_string(
@@ -227,10 +291,19 @@ class GameState:
             text = text.replace('|', 'I').replace('0', 'O').replace('5', 'S')
             text = ' '.join(text.split())  # Normalize whitespace
             
+            ocr_duration = time.time() - ocr_start_time
+            
+            # Record OCR timing
+            if self.metrics:
+                self.metrics.performance.record_ocr_time(ocr_duration)
+            
             self.last_ocr_text = text
             self.last_ocr_frame = self.pyboy.frame_count
             return self.last_ocr_text
         except Exception as e:
+            ocr_duration = time.time() - ocr_start_time
+            if self.metrics:
+                self.metrics.performance.record_ocr_time(ocr_duration)
             print(f"OCR error: {e}")
             return ""
     
@@ -281,7 +354,28 @@ class GameState:
                 # Check if we're in overworld (has valid position)
                 player_pos = memory_state.get("player_position", (0, 0))
                 if player_pos[0] > 0 or player_pos[1] > 0:
-                    game_state = "overworld"
+                    # CRITICAL: Validate screen content before reporting overworld
+                    # Memory might report overworld even when screen is blank
+                    screen_image = self.get_screen_image()
+                    blank_info = self.detect_blank_screen(screen_image)
+                    
+                    if blank_info['is_blank']:
+                        # Screen is blank - don't trust memory state
+                        # Fall back to OCR-based detection or mark as loading
+                        if blank_info['blank_type'] == 'white':
+                            # White screen might be title screen, menu, or transition
+                            if any(word in screen_text.upper() for word in ["NINTENDO", "GAME FREAK", "PRESENTS"]):
+                                game_state = "title_screen"
+                            elif any(word in screen_text.upper() for word in ["MENU", "OPTIONS", "SAVE", "NEW GAME"]):
+                                game_state = "menu"
+                            else:
+                                game_state = "loading"  # Likely a transition/loading screen
+                        else:
+                            # Black screen - likely transition or loading
+                            game_state = "loading"
+                    else:
+                        # Screen has content - safe to report overworld
+                        game_state = "overworld"
                 else:
                     # Fallback to OCR-based detection
                     if not screen_text or "PyBoy" in screen_text:
@@ -293,19 +387,62 @@ class GameState:
                     elif len(screen_text) > 10:
                         game_state = "dialog"
                     elif len(screen_text) > 0:
-                        game_state = "overworld"
+                        # Check if screen is blank before reporting overworld
+                        screen_image = self.get_screen_image()
+                        blank_info = self.detect_blank_screen(screen_image)
+                        if blank_info['is_blank']:
+                            game_state = "loading"  # Blank screen - likely transition
+                        else:
+                            game_state = "overworld"
                     
                     # Use visual detection as fallback for dialogue boxes
                     # This helps when OCR text is garbled or too short (like "reese")
-                    if game_state == "overworld" or (game_state == "unknown" and len(screen_text) > 0):
+                    if game_state == "overworld":
+                        # Validate screen content
+                        screen_image = self.get_screen_image()
+                        blank_info = self.detect_blank_screen(screen_image)
+                        if blank_info['is_blank']:
+                            game_state = "loading"  # Blank screen - overworld invalid
+                        elif self.detect_dialog_box_visually():
+                            game_state = "dialog"
+                    elif game_state == "unknown" and len(screen_text) > 0:
+                        if self.detect_dialog_box_visually():
+                            game_state = "dialog"
+                        # Validate screen content before accepting overworld
+                        screen_image = self.get_screen_image()
+                        blank_info = self.detect_blank_screen(screen_image)
+                        if blank_info['is_blank']:
+                            # Screen is blank - overworld state is invalid
+                            game_state = "loading"
+                        elif self.detect_dialog_box_visually():
+                            game_state = "dialog"
+                    elif game_state == "unknown" and len(screen_text) > 0:
                         if self.detect_dialog_box_visually():
                             game_state = "dialog"
             
-            # ALWAYS check for visual dialogue boxes if we have screen text
-            # Memory reading might miss text boxes, so visual detection is important
-            if game_state == "overworld" and len(screen_text) > 0:
-                if self.detect_dialog_box_visually():
-                    game_state = "dialog"
+            # ALWAYS validate overworld state against screen content
+            if game_state == "overworld":
+                screen_image = self.get_screen_image()
+                blank_info = self.detect_blank_screen(screen_image)
+                
+                # Reject overworld if screen is blank
+                if blank_info['is_blank']:
+                    # Screen is blank - overworld state is invalid
+                    if blank_info['blank_type'] == 'white':
+                        # Try to determine actual state from screen text
+                        if any(word in screen_text.upper() for word in ["NINTENDO", "GAME FREAK", "PRESENTS"]):
+                            game_state = "title_screen"
+                        elif any(word in screen_text.upper() for word in ["MENU", "OPTIONS", "SAVE", "NEW GAME"]):
+                            game_state = "menu"
+                        else:
+                            game_state = "loading"  # Transition/loading screen
+                    else:
+                        game_state = "loading"  # Black screen - likely transition
+                # ALWAYS check for visual dialogue boxes if we have screen text
+                # Memory reading might miss text boxes, so visual detection is important
+                elif len(screen_text) > 0:
+                    if self.detect_dialog_box_visually():
+                        game_state = "dialog"
             
             # Get map name
             map_info = memory_state.get("current_map", {})
@@ -352,13 +489,34 @@ class GameState:
                     if len(screen_text) > 10:
                         game_state = "dialog"
                     else:
-                        game_state = "overworld"
+                        # Check if screen is blank before reporting overworld
+                        screen_image = self.get_screen_image()
+                        blank_info = self.detect_blank_screen(screen_image)
+                        if blank_info['is_blank']:
+                            game_state = "loading"  # Blank screen - likely transition
+                        else:
+                            game_state = "overworld"
             elif len(screen_text) > 0:
-                game_state = "overworld"
+                # Check if screen is blank before reporting overworld
+                screen_image = self.get_screen_image()
+                blank_info = self.detect_blank_screen(screen_image)
+                if blank_info['is_blank']:
+                    game_state = "loading"  # Blank screen - likely transition
+                else:
+                    game_state = "overworld"
             
-            # Use visual detection as fallback for dialogue boxes
+            # Validate overworld state and use visual detection as fallback for dialogue boxes
             # This helps when OCR text is garbled or too short
-            if game_state == "unknown" or game_state == "overworld":
+            if game_state == "overworld":
+                # Validate screen content
+                screen_image = self.get_screen_image()
+                blank_info = self.detect_blank_screen(screen_image)
+                if blank_info['is_blank']:
+                    # Screen is blank - overworld state is invalid
+                    game_state = "loading"  # Default to loading for blank screens
+                elif self.detect_dialog_box_visually():
+                    game_state = "dialog"
+            elif game_state == "unknown":
                 if self.detect_dialog_box_visually():
                     game_state = "dialog"
             

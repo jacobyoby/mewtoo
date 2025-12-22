@@ -5,6 +5,77 @@ All notable changes to Mewtwo will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.7] - 2025-12-21 (In Progress)
+
+### Added
+- **Blank screen detection and handling**
+  - `detect_blank_screen()` method in `GameState` class
+  - Detects screens that are >80% white or black
+  - Automatic handling of blank screens during gameplay transitions
+  - Progressive A-press strategy for blank screen transitions
+- **Character creation protection**
+  - Detects character creation/naming screens
+  - Multiple layers of B-button blocking during character creation
+  - LLM prompt warnings against B during character creation
+  - Response filtering to prevent B presses
+- **Enhanced stuck detection with screenshot saving**
+  - Automatic screenshot saving when agent gets stuck (non-blank screens only)
+  - Descriptive filenames with stuck reason and step count
+  - Multi-modal stuck detection combining multiple signals
+  - Screenshot saving skips blank screens to avoid useless images
+
+### Changed
+- State detection now validates screen content before reporting state
+- Blank screens correctly detected and reported as "loading" state
+- Prevents false "overworld" state detection on blank screens
+- Enhanced stuck detection to skip blank screens
+
+### Fixed
+- Fixed false "overworld" state detection when screen is blank
+- Fixed agent backing out after starting new game
+- Fixed screenshot saving for blank screens (now skipped)
+- Fixed state detection to validate screen content
+
+## [0.0.6] - 2025-12-21
+
+### Added
+- **Enhanced logging and analytics**
+  - Performance metrics tracking (step timing, OCR timing, LLM timing)
+  - Cache hit rate monitoring with detailed statistics
+  - LLM call statistics (count, latency, tokens, success rate, errors, timeouts)
+  - Metrics automatically logged to JSON files
+  - Human-readable metrics summary displayed at end of runs
+  - Rolling averages for recent performance trends
+- **Comprehensive test suite expansion**
+  - Performance benchmark tests (`tests/test_performance.py` - 7 tests)
+    - Step time benchmarks (<50ms target)
+    - Cache hit rate benchmarks (>80% target)
+    - LLM latency benchmarks (<500ms target)
+    - OCR timing benchmarks
+    - Performance regression detection
+  - End-to-end tests (`tests/test_end_to_end.py` - 5 tests)
+    - Early game sequence tests
+    - Menu navigation tests
+    - Overworld movement tests
+    - Dialogue handling tests
+    - State transition tests
+  - Stress tests (`tests/test_stress.py` - 6 tests)
+    - Extended run tests (1000+ and 5000+ steps)
+    - Memory leak detection
+    - Long-running stability tests
+    - Resource limit tests (cache size, action history)
+  - Edge case tests (`tests/test_edge_cases.py` - 10 tests)
+    - Error recovery tests (LLM, game state, memory)
+    - Stuck detection tests (repetitive actions, position stuck, same state)
+    - Edge case scenarios (empty text, long text, rapid changes, invalid actions)
+  - Total test count: 123 tests (up from 95)
+
+### Changed
+- Metrics tracking is now integrated into all components (agent, LLM provider, game state)
+- Log files now include comprehensive metrics data
+- Cache statistics now track evictions
+- Test suite expanded from 95 to 123 tests with comprehensive coverage
+
 ## [0.0.5.1] - 2025-12-19
 
 ### Fixed

@@ -44,6 +44,12 @@ Each log file contains:
   "start_time": "2025-12-19T23:07:18",
   "end_time": "2025-12-19T23:07:25",
   "total_steps_completed": 100,
+  "metrics": {
+    "runtime": {...},
+    "performance": {...},
+    "llm": {...},
+    "cache": {...}
+  },
   "steps_log": [
     {
       "step": 1,
@@ -116,10 +122,20 @@ python scripts/analyze_log.py --latest
 - **Timestamps**: Each step has a timestamp
 - **Error tracking**: Errors and tracebacks are logged
 
+## Metrics in Logs
+
+Log files now include comprehensive metrics data. See `docs/METRICS_GUIDE.md` for detailed information about:
+- Performance metrics (step timing, OCR timing, LLM timing)
+- Cache statistics (hit rate, evictions)
+- LLM statistics (call count, latency, success rate)
+
+Metrics are automatically displayed at the end of each run and saved to log files.
+
 ## Tips
 
 - Compare multiple runs to see if improvements help
 - Look for action patterns that indicate the agent is stuck
 - Check screen text to see if OCR is working well
 - Use logs to debug why the agent isn't progressing
+- Review metrics to optimize performance (cache hit rate, LLM call count)
 

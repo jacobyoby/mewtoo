@@ -1,6 +1,6 @@
 """Main entry point for Mewtwo.
 
-Version: 0.0.5.1
+Version: 0.0.7
 """
 import argparse
 import os
@@ -16,15 +16,17 @@ from llm_provider import OllamaProvider, ClaudeProvider, LLMProvider
 from game_state import GameState
 from pokemon_agent import PokemonAgent
 from config import setup_tesseract, get_config
+from metrics import MetricsCollector
 
 
-def create_llm_provider(provider: str, model: Optional[str] = None, config=None) -> LLMProvider:
+def create_llm_provider(provider: str, model: Optional[str] = None, config=None, metrics=None) -> LLMProvider:
     """Create LLM provider based on configuration.
     
     Args:
         provider: Provider name ('ollama' or 'claude')
         model: Optional model name
         config: Optional Config instance (uses global config if not provided)
+        metrics: Optional metrics collector instance
     
     Returns:
         LLMProvider instance
@@ -36,13 +38,13 @@ def create_llm_provider(provider: str, model: Optional[str] = None, config=None)
     
     if provider.lower() == "ollama":
         default_model = model or llm_config.get("ollama_model", "llama3.2")
-        return OllamaProvider(model=default_model)
+        return OllamaProvider(model=default_model, metrics=metrics)
     elif provider.lower() == "claude":
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
         default_model = model or llm_config.get("claude_model", "claude-3-5-sonnet-20241022")
-        return ClaudeProvider(api_key=api_key, model=default_model)
+        return ClaudeProvider(api_key=api_key, model=default_model, metrics=metrics)
     else:
         raise ValueError(f"Unknown provider: {provider}")
 
@@ -255,10 +257,13 @@ def main():
     
     print("Game loaded!")
     
+    # Initialize metrics collector
+    metrics = MetricsCollector()
+    
     # Initialize components
     print(f"Initializing LLM provider: {args.llm_provider}")
     try:
-        llm_provider = create_llm_provider(args.llm_provider, args.model, config)
+        llm_provider = create_llm_provider(args.llm_provider, args.model, config, metrics=metrics)
     except Exception as e:
         print(f"Error initializing LLM provider: {e}")
         pyboy.stop()
@@ -276,7 +281,8 @@ def main():
     
     ocr_scale_factor = args.ocr_scale if hasattr(args, 'ocr_scale') else config.get("ocr.scale_factor", 6)
     game_state = GameState(pyboy, ocr_enabled=ocr_enabled, ocr_interval=ocr_interval,
-                          memory_check_interval=memory_interval, ocr_scale_factor=ocr_scale_factor)
+                          memory_check_interval=memory_interval, ocr_scale_factor=ocr_scale_factor,
+                          metrics=metrics)
     
     # Get agent config
     agent_config = config.get_agent_config()
@@ -285,7 +291,8 @@ def main():
         game_state, 
         use_cache=agent_config.get("use_cache", True),
         use_strategy=agent_config.get("use_strategy", True),
-        goal_check_interval=goal_interval
+        goal_check_interval=goal_interval,
+        metrics=metrics
     )
     
     # Setup logging
@@ -346,6 +353,14 @@ def main():
                     step_log["first_pokemon_level"] = result['game_info']['party'][0].get('level')
             
             log_data["steps_log"].append(step_log)
+            
+            # Update cache metrics from action_cache
+            if agent.action_cache:
+                cache_stats = agent.action_cache.get_stats()
+                metrics.cache.hits = cache_stats['hits']
+                metrics.cache.misses = cache_stats['misses']
+                metrics.cache.evictions = cache_stats.get('evictions', 0)
+                metrics.cache.update_size(cache_stats['size'], cache_stats.get('max_size', 100))
             
             # Save log after each step (in case of crash)
             with open(log_path, 'w', encoding='utf-8') as f:
@@ -427,6 +442,20 @@ def main():
             if progress['completed_goal_names']:
                 print(f"Completed: {', '.join(progress['completed_goal_names'])}")
             print("=" * 60)
+        
+        # Update cache metrics one final time
+        if agent.action_cache:
+            cache_stats = agent.action_cache.get_stats()
+            metrics.cache.hits = cache_stats['hits']
+            metrics.cache.misses = cache_stats['misses']
+            metrics.cache.evictions = cache_stats.get('evictions', 0)
+            metrics.cache.update_size(cache_stats['size'], cache_stats.get('max_size', 100))
+        
+        # Add metrics to log
+        log_data["metrics"] = metrics.get_all_stats()
+        
+        # Print metrics summary
+        print("\n" + metrics.get_summary())
         
         with open(log_path, 'w', encoding='utf-8') as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)

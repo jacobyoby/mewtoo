@@ -7,32 +7,43 @@ assignees: ''
 ---
 
 ## Bug Description
+
 A clear and concise description of what the bug is.
 
 ## Steps to Reproduce
+
 1. Run command: `...`
-2. With config: `...`
-3. See error: `...`
+2. See error: `...`
 
 ## Expected Behavior
-A clear and concise description of what you expected to happen.
+
+What you expected to happen.
 
 ## Actual Behavior
+
 What actually happened.
 
 ## Environment
-- OS: [e.g., Windows 10, macOS 13, Ubuntu 22.04]
-- Python version: [e.g., 3.10.5]
-- Mewtwo version: [e.g., 0.0.5.1]
-- LLM Provider: [e.g., Ollama, Claude]
-- Model: [e.g., llama3.2]
 
-## Logs
-If applicable, attach relevant log files or paste log excerpts here.
+- **OS**: [e.g., Windows 10, macOS 13, Ubuntu 22.04]
+- **Python Version**: [e.g., 3.9.7]
+- **Mewtwo Version**: [e.g., 0.0.7]
+- **Ollama Version**: [e.g., 0.13.5] (if using Ollama)
+- **Tesseract Version**: [e.g., 5.4.0]
 
-## Screenshots
-If applicable, add screenshots to help explain your problem.
+## Logs/Output
+
+```
+Paste relevant logs or error messages here
+```
 
 ## Additional Context
+
 Add any other context about the problem here.
 
+## Checklist
+
+- [ ] I have checked [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- [ ] I have verified my ROM file is valid
+- [ ] I have checked that all prerequisites are installed
+- [ ] I have included relevant logs/output

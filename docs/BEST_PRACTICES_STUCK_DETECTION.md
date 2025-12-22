@@ -1,5 +1,25 @@
 # Best Practices for Stuck Detection and Action Diversity
 
+**Status**: Reference Guide  
+**Last Updated**: 2025-12-21
+
+This document outlines best practices for stuck detection. Many of these have been implemented in v0.0.6 and v0.0.7.
+
+**Current Implementation Status**:
+- [x] Multi-modal stuck detection (combines multiple signals)
+- [x] Action diversity checking (window-based analysis)
+- [x] Position-based stuck detection
+- [x] Movement validation
+- [x] Automatic screenshot saving when stuck
+- [x] Blank screen detection (prevents false stuck detection)
+
+For implementation details, see:
+- `pokemon_agent.py` - Stuck detection implementation
+- `game_state.py` - Blank screen detection
+- `docs/TROUBLESHOOTING.md` - Troubleshooting guide
+
+---
+
 Based on research and analysis of game AI agents, here are best practices for handling stuck states and improving action diversity.
 
 ## 1. Multi-Modal Stuck Detection
@@ -230,19 +250,19 @@ def calculate_reward(action, pre_state, post_state):
 ## 8. Implementation Priority
 
 ### Phase 1: Quick Wins (High Impact, Low Effort)
-1. ✅ Add position-based stuck detection
-2. ✅ Add action diversity checking
-3. ✅ Force exploration when stuck_count > threshold
+1. Add position-based stuck detection
+2. Add action diversity checking
+3. Force exploration when stuck_count > threshold
 
 ### Phase 2: Strategy Improvements (Medium Effort)
-4. ✅ Use position data in strategy suggestions
-5. ✅ Add movement validation
-6. ✅ Improve pattern detection for "mostly X" patterns
+4. Use position data in strategy suggestions
+5. Add movement validation
+6. Improve pattern detection for "mostly X" patterns
 
 ### Phase 3: Advanced Features (Higher Effort)
-7. ✅ Implement adaptive exploration rate
-8. ✅ Add reward shaping for training
-9. ✅ Implement boundary detection
+7. Implement adaptive exploration rate
+8. Add reward shaping for training
+9. Implement boundary detection
 
 ## 9. Testing and Validation
 

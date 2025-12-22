@@ -1,11 +1,24 @@
 # LLM Call Optimization Guide
 
+## Monitoring LLM Performance
+
+**New in v0.0.6**: Use metrics to monitor LLM call efficiency and optimize settings.
+
+Check metrics summary after runs:
+- **Cache hit rate**: Aim for >80% (fewer LLM calls)
+- **LLM call count**: Lower is better (out of total steps)
+- **LLM latency**: Monitor for performance issues
+- **Success rate**: Should be >95%
+
+See `docs/METRICS_GUIDE.md` for detailed metrics interpretation.
+
 ## Optimizations Implemented
 
 ### 1. Action Caching
 - Caches actions for similar game states
-- Reduces LLM calls by ~30-50% for repetitive situations
+- Reduces LLM calls by ~30-50% for repetitive situations (typically 80-90% hit rate)
 - Uses MD5 hash of normalized game state as key
+- **Metrics**: Cache hit rate tracked automatically
 
 ### 2. Prompt Optimization
 - Reduced prompt size by ~70%
@@ -39,7 +52,7 @@
 |-------------|--------|-------|-------------|
 | Prompt size | ~200 tokens | ~50 tokens | 75% reduction |
 | Max tokens | 4096 | 10 | 99.7% reduction |
-| Cache hits | 0% | 30-50% | 30-50% fewer calls |
+| Cache hits | 0% | 80-90% | 80-90% fewer calls |
 | History size | 10 | 5 | 50% reduction |
 
 ## Expected Performance
@@ -58,12 +71,20 @@ agent = PokemonAgent(llm_provider, game_state, use_cache=False)
 
 ## Monitoring Cache Performance
 
-The cache tracks statistics:
-- Cache hits/misses
-- Hit rate percentage
-- Cache size
+**v0.0.6**: Cache statistics are now automatically tracked via the metrics system.
 
-Access via `agent.action_cache.get_stats()`
+Metrics summary shows:
+- Cache hits/misses
+- Hit rate percentage (aim for >80%)
+- Cache size and utilization
+- Cache evictions
+
+Access metrics:
+- **During execution**: Check metrics summary at end of run
+- **From logs**: Metrics saved to JSON log files
+- **Programmatically**: `metrics.get_all_stats()['cache']`
+
+See `docs/METRICS_GUIDE.md` for detailed information.
 
 ## Additional Optimizations
 
