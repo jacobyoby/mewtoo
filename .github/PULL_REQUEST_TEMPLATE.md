@@ -1,7 +1,9 @@
 ## Description
+
 Brief description of what this PR does.
 
 ## Type of Change
+
 - [ ] Bug fix (non-breaking change which fixes an issue)
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
@@ -9,27 +11,39 @@ Brief description of what this PR does.
 - [ ] Performance improvement
 - [ ] Code refactoring
 
+## Related Issues
+
+Closes #(issue number)
+Related to #(issue number)
+
 ## Changes Made
-- 
-- 
-- 
+
+- Change 1
+- Change 2
+- Change 3
 
 ## Testing
-- [ ] I have tested this locally
-- [ ] I have added/updated tests
+
 - [ ] All existing tests pass
+- [ ] New tests added for new functionality
+- [ ] Tested with both Ollama and Claude providers (if applicable)
+- [ ] Tested on Windows/macOS/Linux (if applicable)
 
 ## Checklist
-- [ ] My code follows the project's style guidelines
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have updated the documentation accordingly
-- [ ] My changes generate no new warnings
-- [ ] I have checked that ROM files are not included
-- [ ] I have checked that no sensitive data (API keys, etc.) is included
 
-## Related Issues
-Closes #
+- [ ] Code follows PEP 8 style guidelines
+- [ ] Code is commented, particularly in hard-to-understand areas
+- [ ] Documentation updated (README, CHANGELOG, docs/)
+- [ ] CHANGELOG.md updated
+- [ ] No ROM files included
+- [ ] No sensitive data included (API keys, etc.)
+- [ ] Tests pass locally
+- [ ] Self-review completed
 
 ## Screenshots (if applicable)
-Add screenshots here if your changes affect the UI or visual output.
 
+Add screenshots or GIFs to help explain your changes.
+
+## Additional Notes
+
+Any additional information that reviewers should know.

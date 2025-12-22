@@ -15,8 +15,8 @@ Get Mewtwo up and running in minutes!
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/your-username/mewtwo.git
-cd mewtwo
+git clone https://github.com/jacobyoby/mewtoo.git
+cd mewtoo
 ```
 
 ### 2. Create Virtual Environment

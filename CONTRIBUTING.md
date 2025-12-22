@@ -1,6 +1,6 @@
-# Contributing to Mewtwo
+# Contributing to Mewtoo
 
-Thank you for your interest in contributing to Mewtwo! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to Mewtoo! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
 
@@ -12,7 +12,7 @@ Thank you for your interest in contributing to Mewtwo! This document provides gu
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/pokemon.git`
+2. Clone your fork: `git clone https://github.com/your-username/mewtoo.git`
 3. Create a virtual environment: `python -m venv venv`
 4. Activate it: `venv\Scripts\activate` (Windows) or `source venv/bin/activate` (macOS/Linux)
 5. Install dependencies: `pip install -r requirements.txt`

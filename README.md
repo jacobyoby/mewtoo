@@ -1,8 +1,10 @@
-# Mewtwo
+# Mewtoo
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-0.0.7-blue.svg)](VERSION)
+
+> **Pocket monsters for the rest of us**
 
 A powerful AI agent that plays Pokemon Red using a Game Boy emulator (PyBoy) and a Large Language Model. Named after the legendary Pokemon Mewtwo, known for its intelligence and psychic abilities.
 
@@ -12,8 +14,8 @@ Get up and running in 5 minutes:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/mewtwo.git
-cd mewtwo
+git clone https://github.com/jacobyoby/mewtoo.git
+cd mewtoo
 
 # 2. Create virtual environment
 python -m venv venv
@@ -173,7 +175,7 @@ python main.py --rom path/to/pokemon_red.gb --steps 100 --display --fast
 ## Project Structure
 
 ```
-pokemon/
+mewtoo/
 ├── main.py                 # Main entry point
 ├── pokemon_agent.py        # AI agent logic
 ├── game_state.py           # Game state extraction & controls
@@ -277,7 +279,7 @@ See the `docs/` directory for detailed guides:
 
 ## Configuration
 
-Mewtwo uses a YAML configuration file (`config.yaml`) for easy tuning of agent behavior:
+Mewtoo uses a YAML configuration file (`config.yaml`) for easy tuning of agent behavior:
 
 - **Agent settings**: Action history, caching, goal checking intervals
 - **Strategy settings**: Exploration rate, goal priorities
@@ -289,7 +291,7 @@ Command-line arguments override config file settings. See `config.yaml` for all 
 
 ### Strategy Profiles
 
-Mewtwo includes three pre-configured strategy profiles:
+Mewtoo includes three pre-configured strategy profiles:
 
 - **`balanced`** (default): 30% exploration, 70% goal-focused. Standard settings for general gameplay.
 - **`aggressive`**: 10% exploration, 90% goal-focused. Fast progress, less exploration, larger cache for speed.
@@ -304,7 +306,7 @@ Or set `active_profile` in `config.yaml`. Profiles can be customized by editing 
 
 ## Testing
 
-Mewtwo includes a comprehensive test suite with 123 tests covering:
+Mewtoo includes a comprehensive test suite with 123 tests covering:
 
 - **Unit Tests**: Core module functionality (95 tests)
 - **Integration Tests**: Component integration (11 tests)
