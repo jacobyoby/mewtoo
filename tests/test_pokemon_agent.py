@@ -38,13 +38,26 @@ class TestPokemonAgent:
     def test_get_action_from_cache(self, mock_llm_provider, mock_pyboy):
         """Test getting action from cache."""
         game_state = GameState(mock_pyboy, ocr_enabled=False)
+        # Force a stable overworld state so get_action reaches the cache lookup
+        # (the real detector reports 'loading' for a mock screen, which short-circuits).
+        game_state.get_game_info = Mock(return_value={
+            "screen_text": "test",
+            "frame_count": 100,
+            "game_state": "overworld",
+            "has_text": True,
+        })
         agent = PokemonAgent(mock_llm_provider, game_state)
-        
-        # Setup cache to return an action
-        agent.action_cache.set("Hello", 100, [], "A")
-        
+
+        # Non-empty, diverse history: skips the first-action fallback and keeps
+        # action diversity high so the cache path is exercised.
+        agent.action_history = ["UP", "DOWN", "LEFT"]
+
+        # Seed the cache with the exact key get_action computes:
+        #   f"{game_state}:{screen_text[:30]}", frame_count, recent_actions
+        agent.action_cache.set("overworld:test", 100, agent.action_history, "A")
+
         action = agent.get_action()
-        
+
         assert action == "A"
         mock_llm_provider.generate.assert_not_called()
     

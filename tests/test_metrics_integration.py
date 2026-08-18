@@ -1,7 +1,7 @@
 """Integration tests for metrics system - loading and basic functionality."""
 import pytest
 import time
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock, MagicMock, patch
 from metrics import MetricsCollector
 from pokemon_agent import PokemonAgent
 from game_state import GameState
@@ -85,18 +85,29 @@ class TestMetricsIntegration:
         assert cache_stats['hits'] >= 0
         assert cache_stats['misses'] >= 0
     
-    def test_metrics_track_llm_calls(self, mock_llm_provider, mock_pyboy):
-        """Test that LLM calls are tracked."""
+    def test_metrics_track_llm_calls(self, mock_pyboy):
+        """Test that LLM calls are tracked.
+
+        Uses a real OllamaProvider (so the genuine metrics-recording code path in
+        generate() is exercised) but stubs out every Ollama touchpoint -- the
+        model-availability probe and the chat client -- so the test runs fully
+        offline and never requires a live Ollama server or a pulled model.
+        """
         metrics = MetricsCollector()
-        
-        # Create LLM provider with metrics
-        llm_provider = OllamaProvider(model="llama3.2", metrics=metrics)
+
+        # Stub the model-availability probe so the constructor does not hit Ollama
+        # (a live server with the model pulled is not a prerequisite for this test).
+        with patch.object(
+            OllamaProvider, "_list_available_models", return_value=["llama3.2"]
+        ):
+            llm_provider = OllamaProvider(model="llama3.2", metrics=metrics)
         # Mock the actual client to avoid real API calls
         llm_provider.client = Mock()
         llm_provider.client.chat = Mock(return_value={
-            "message": {"content": "UP"}
+            "message": {"content": "UP"},
+            "eval_count": 5,
         })
-        
+
         game_state = GameState(mock_pyboy, ocr_enabled=False, metrics=metrics)
         agent = PokemonAgent(llm_provider, game_state, metrics=metrics)
         

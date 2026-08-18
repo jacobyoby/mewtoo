@@ -1,5 +1,6 @@
 """Pytest configuration and fixtures."""
 import pytest
+import numpy as np
 from unittest.mock import Mock, MagicMock
 from typing import Generator
 
@@ -26,7 +27,13 @@ def mock_pyboy():
     # Mock other PyBoy attributes
     pyboy.frame_count = 0
     pyboy.screen = Mock()
-    pyboy.screen.image = Mock()
+    # Provide a realistic, non-blank screen image (Game Boy resolution 160x144, RGB).
+    # A bare Mock() here becomes a 0-d array via np.array(), which GameState's
+    # blank-screen detector treats as a blank/invalid screen and the agent then
+    # short-circuits to a "WAIT" transition action instead of exercising its real
+    # decision logic. A uniform mid-tone frame is non-blank (no white/black wash)
+    # and does not trip visual dialog detection.
+    pyboy.screen.image = np.full((144, 160, 3), 128, dtype=np.uint8)
     
     # Mock button methods
     pyboy.button_press = Mock()
