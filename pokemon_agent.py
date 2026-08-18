@@ -10,6 +10,7 @@ from llm_provider import LLMProvider
 from game_state import GameState
 from llm_optimizer import ActionCache, PromptOptimizer, RepetitionDetector
 from agent_strategy import AgentStrategy, GameEvent
+from early_game import EarlyGameHandler
 from config import get_config
 from pyboy import PyBoy
 from metrics import MetricsCollector
@@ -47,6 +48,7 @@ No explanations. Just the action."""
         self.blank_screen_steps = 0  # Track consecutive steps with blank screen (regardless of state)
         self.new_game_started = False  # Track if we've started a new game (prevent backing out)
         self.character_creation_steps = 0  # Track steps in character creation
+        self.early_game_handler = EarlyGameHandler()  # Scripted naming-screen sequences
         self.prompt_optimizer = PromptOptimizer()
         self.repetition_detector = RepetitionDetector()
         self.metrics = metrics  # Store metrics collector
@@ -225,6 +227,22 @@ No explanations. Just the action."""
             if self.character_creation_steps > 0:
                 self.character_creation_steps = 0
         
+        # Scripted naming-screen handling. The NAME? menu and letter grid
+        # cannot be completed by the generic "always press A" policy (A on
+        # NEW NAME enters the grid, where A just types letters forever) -- the
+        # reason get_starter validated at 0%. The handler recognizes those
+        # screens from OCR text, returns short deterministic sequences
+        # (DOWN,A to pick a preset name; A,START,A to finish a grid entry),
+        # and latches off permanently once the party is non-empty.
+        party_size = len(game_info.get('party', []) or [])
+        early_action = self.early_game_handler.next_action(
+            screen_text, game_state, party_size
+        )
+        if early_action is not None:
+            print(f"[EARLY_GAME] Step {step_count}: scripted {early_action} "
+                  f"for naming/confirm screen")
+            return early_action
+
         # Track loading state persistence
         if game_state == 'loading':
             self.loading_state_steps += 1

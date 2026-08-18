@@ -13,8 +13,8 @@
   - [x] Blank screen handling during gameplay
   - [x] Enhanced stuck detection with screenshot saving
   - [x] Agent reaches character creation/naming screens
-  - [ ] Complete naming sequence
-  - [ ] Complete starter selection
+  - [x] Complete naming sequence (scripted handler in `early_game.py`; live validation pending — needs ROM)
+  - [ ] Complete starter selection (YES/NO confirm handled; lab navigation to pokeball still generic)
   - [ ] Reach Viridian City reliably
 
 ### Completed
