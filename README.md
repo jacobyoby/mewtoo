@@ -1,6 +1,6 @@
 # Mewtoo
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-0.0.7-blue.svg)](VERSION)
 
@@ -61,7 +61,7 @@ python main.py --rom path/to/pokemon_red.gb --steps 100 --display
 
 Before you begin, ensure you have:
 
-1. **Python 3.8+** - [Download Python](https://www.python.org/downloads/)
+1. **Python 3.10+** - [Download Python](https://www.python.org/downloads/)
 2. **Tesseract OCR** - Required for text extraction
    - **Windows**: Download from [Tesseract GitHub](https://github.com/UB-Mannheim/tesseract/wiki)
    - **macOS**: `brew install tesseract`
@@ -182,7 +182,8 @@ mewtoo/
 ├── llm_provider.py         # LLM integration (Ollama/Claude)
 ├── llm_optimizer.py        # LLM prompt optimization
 ├── config.py               # Configuration helpers
-├── requirements.txt        # Python dependencies
+├── pyproject.toml          # Package metadata, dependencies, tooling config
+├── requirements.txt        # Python dependencies (mirror of pyproject)
 ├── docs/                   # Documentation
 │   ├── EXTRACT_ROM_GUIDE.md
 │   ├── LLM_OPTIMIZATION_GUIDE.md

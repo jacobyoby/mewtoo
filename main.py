@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 
@@ -22,21 +23,21 @@ from pokemon_agent import PokemonAgent
 
 def create_llm_provider(provider: str, model: str | None = None, config=None, metrics=None) -> LLMProvider:
     """Create LLM provider based on configuration.
-    
+
     Args:
         provider: Provider name ('ollama' or 'claude')
         model: Optional model name
         config: Optional Config instance (uses global config if not provided)
         metrics: Optional metrics collector instance
-    
+
     Returns:
         LLMProvider instance
     """
     if config is None:
         config = get_config()
-    
+
     llm_config = config.get_llm_config()
-    
+
     if provider.lower() == "ollama":
         default_model = model or llm_config.get("ollama_model", "llama3.2")
         return OllamaProvider(model=default_model, metrics=metrics)
@@ -50,19 +51,8 @@ def create_llm_provider(provider: str, model: str | None = None, config=None, me
         raise ValueError(f"Unknown provider: {provider}")
 
 
-def main():
-    """Main function."""
-    load_dotenv()
-    
-    # Load configuration
-    config = get_config()
-    
-    # Apply profile if specified via command line (will be applied after args parsing)
-    # For now, just load config
-    
-    # Setup Tesseract OCR
-    setup_tesseract()
-    
+def build_parser(config) -> argparse.ArgumentParser:
+    """Build the command-line argument parser."""
     parser = argparse.ArgumentParser(description="Mewtwo - AI Agent for Pokemon Red")
     parser.add_argument(
         "--rom",
@@ -162,63 +152,55 @@ def main():
         action="store_true",
         help="Show debug-level diagnostics (stuck details, screenshot skips)"
     )
+    return parser
 
-    args = parser.parse_args()
 
-    # Library modules (agent, game state, providers) log diagnostics through
-    # the logging module; per-step gameplay output stays on stdout via print.
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
-
-    # Apply profile if specified
+def apply_profile(config, args) -> None:
+    """Apply a strategy profile from the CLI or config.yaml."""
     if args.profile:
         applied_settings = config.apply_profile(args.profile)
         if applied_settings:
             print(f"Applied profile '{args.profile}': {applied_settings}")
     elif config.get("active_profile"):
-        # Apply default profile from config
         profile_name = config.get_active_profile()
         applied_settings = config.apply_profile(profile_name)
         if applied_settings and profile_name != "balanced":
             print(f"Using profile '{profile_name}' from config.yaml")
-    
-    # Validate ROM file
-    rom_path = Path(args.rom)
-    
+
+
+def validate_rom(rom_arg: str) -> Path:
+    """Validate the ROM path and readability; exit with guidance on failure."""
+    rom_path = Path(rom_arg)
+
     # Check for placeholder or invalid paths
-    if args.rom == "..." or args.rom.strip() == "":
+    if rom_arg == "..." or rom_arg.strip() == "":
         print("Error: Invalid ROM path provided.")
         print("Please provide the actual path to your ROM file.")
         print("Example: python main.py --rom \"Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb\" --model llama3.2:1b --llm-provider ollama")
         sys.exit(1)
-    
+
     if not rom_path.exists():
-        print(f"Error: ROM file not found: {args.rom}")
+        print(f"Error: ROM file not found: {rom_arg}")
         print(f"Current directory: {Path.cwd()}")
         print(f"Looking for: {rom_path.absolute()}")
-        # Check if file exists in current directory with different case
-        current_dir = Path.cwd()
-        if current_dir.exists():
-            gb_files = list(current_dir.glob("*.gb"))
-            if gb_files:
-                print("\nFound .gb files in current directory:")
-                for gb_file in gb_files:
-                    print(f"  - {gb_file.name}")
+        # Help the user spot a near-miss in the current directory
+        gb_files = list(Path.cwd().glob("*.gb"))
+        if gb_files:
+            print("\nFound .gb files in current directory:")
+            for gb_file in gb_files:
+                print(f"  - {gb_file.name}")
         sys.exit(1)
-    
-    # Check if ROM file is readable
+
     if not rom_path.is_file():
-        print(f"Error: ROM path is not a file: {args.rom}")
+        print(f"Error: ROM path is not a file: {rom_arg}")
         sys.exit(1)
-    
+
     try:
         # Test file permissions
         with open(rom_path, 'rb') as f:
             f.read(1)
     except PermissionError as e:
-        print(f"Error: Permission denied accessing ROM file: {args.rom}")
+        print(f"Error: Permission denied accessing ROM file: {rom_arg}")
         print(f"Details: {e}")
         print("\nPossible solutions:")
         print("1. Check file permissions")
@@ -226,27 +208,28 @@ def main():
         print("3. Run as administrator if needed")
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Cannot read ROM file: {args.rom}")
+        print(f"Error: Cannot read ROM file: {rom_arg}")
         print(f"Details: {e}")
         sys.exit(1)
-    
-    # Initialize PyBoy
-    print(f"Loading ROM: {args.rom}")
+
+    return rom_path
+
+
+def init_pyboy(rom_path: Path, args) -> PyBoy:
+    """Initialize PyBoy with the ROM and wait for the game to load."""
+    print(f"Loading ROM: {rom_path}")
     window = "null" if args.headless else "SDL2" if args.display else "null"
     pyboy_kwargs = {
         "window": window,
         "debug": False,
-        "sound_emulated": False,  # Disable sound by default
-        "sound": False  # Also disable sound output
+        "sound_emulated": args.sound,
+        "sound": args.sound,
     }
-    if args.sound:
-        pyboy_kwargs["sound_emulated"] = True
-        pyboy_kwargs["sound"] = True
-    
+
     try:
         pyboy = PyBoy(str(rom_path), **pyboy_kwargs)
     except PermissionError as e:
-        print(f"Error: Permission denied when initializing PyBoy with ROM: {args.rom}")
+        print(f"Error: Permission denied when initializing PyBoy with ROM: {rom_path}")
         print(f"Details: {e}")
         print("\nPossible causes:")
         print("1. The ROM file is locked by another process")
@@ -258,22 +241,25 @@ def main():
         print("3. Run as administrator if needed")
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Failed to initialize PyBoy with ROM: {args.rom}")
+        print(f"Error: Failed to initialize PyBoy with ROM: {rom_path}")
         print(f"Details: {e}")
-        import traceback
         traceback.print_exc()
         sys.exit(1)
-    
+
     # Wait for game to load
     for _ in range(60):
         pyboy.tick()
-    
+
     print("Game loaded!")
-    
-    # Initialize metrics collector
-    metrics = MetricsCollector()
-    
-    # Initialize components
+    return pyboy
+
+
+def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[PokemonAgent, int]:
+    """Build the LLM provider, game state, and agent.
+
+    Returns:
+        (agent, frames_per_step) tuple
+    """
     print(f"Initializing LLM provider: {args.llm_provider}")
     try:
         llm_provider = create_llm_provider(args.llm_provider, args.model, config, metrics=metrics)
@@ -281,198 +267,219 @@ def main():
         print(f"Error initializing LLM provider: {e}")
         pyboy.stop()
         sys.exit(1)
-    
+
     # Configure OCR settings (command line args override config file)
     ocr_enabled = not (args.no_ocr or args.fast) and config.get("ocr.enabled", True)
     ocr_interval = 100 if args.fast else max(args.ocr_interval, 10)
     memory_interval = 10 if args.fast else max(args.memory_interval, 1)
     goal_interval = 10 if args.fast else max(args.goal_interval, 1)
-    
-    # Get performance config
+
     perf_config = config.get_performance_config()
     frames_per_step = 1 if args.fast else perf_config.get("frames_per_step", 3)
-    
-    ocr_scale_factor = args.ocr_scale if hasattr(args, 'ocr_scale') else config.get("ocr.scale_factor", 6)
+
     game_state = GameState(pyboy, ocr_enabled=ocr_enabled, ocr_interval=ocr_interval,
-                          memory_check_interval=memory_interval, ocr_scale_factor=ocr_scale_factor,
-                          metrics=metrics)
-    
-    # Get agent config
+                           memory_check_interval=memory_interval, ocr_scale_factor=args.ocr_scale,
+                           metrics=metrics)
+
     agent_config = config.get_agent_config()
     agent = PokemonAgent(
-        llm_provider, 
-        game_state, 
+        llm_provider,
+        game_state,
         use_cache=agent_config.get("use_cache", True),
         use_strategy=agent_config.get("use_strategy", True),
         goal_check_interval=goal_interval,
         metrics=metrics
     )
-    
-    # Setup logging
+    return agent, frames_per_step
+
+
+def make_log_path(args) -> Path:
+    """Resolve the JSON run-log path."""
     if args.log:
-        log_path = Path(args.log)
-    else:
-        log_dir = Path(args.log_dir)
-        log_dir.mkdir(exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_path = log_dir / f"pokemon_agent_{timestamp}.json"
-    
-    # Get active profile name
-    active_profile = args.profile or config.get_active_profile()
-    
+        return Path(args.log)
+    log_dir = Path(args.log_dir)
+    log_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return log_dir / f"pokemon_agent_{timestamp}.json"
+
+
+def build_step_log(step: int, result: dict) -> dict:
+    """Assemble the JSON log record for one step."""
+    game_info = result['game_info']
+    step_log = {
+        "step": step + 1,
+        "action": result['action'],
+        "success": result['success'],
+        "frame_count": game_info['frame_count'],
+        "screen_text": game_info['screen_text'],
+        "game_state": game_info.get('game_state'),
+        "timestamp": datetime.now().isoformat()
+    }
+    if result.get('progress'):
+        step_log["progress"] = result['progress']
+    if game_info.get('current_map'):
+        step_log["location"] = game_info['current_map'].get('map_name')
+    if game_info.get('player_position'):
+        step_log["position"] = game_info['player_position']
+    if game_info.get('party'):
+        step_log["party_size"] = len(game_info['party'])
+        step_log["first_pokemon_level"] = game_info['party'][0].get('level')
+    return step_log
+
+
+def print_step_report(step: int, total_steps: int, result: dict) -> None:
+    """Print the per-step console report."""
+    game_info = result['game_info']
+    print(f"Step {step + 1}/{total_steps}")
+    print(f"  Action: {result['action']}")
+    print(f"  Success: {result['success']}")
+    if game_info.get('game_state'):
+        print(f"  Game State: {game_info['game_state']}")
+
+    if result.get('progress'):
+        progress = result['progress']
+        print(f"  Progress: {progress['completed_goals']}/{progress['total_goals']} goals "
+              f"({progress['progress_percent']:.1f}%)")
+        if progress['completed_goal_names']:
+            recent_completed = progress['completed_goal_names'][-3:]
+            print(f"  Recent Goals: {', '.join(recent_completed)}")
+
+    if game_info.get('current_map'):
+        map_name = game_info['current_map'].get('map_name')
+        if map_name and map_name != 'Unknown':
+            print(f"  Location: {map_name}")
+    pos = game_info.get('player_position')
+    if pos and pos != (0, 0):
+        print(f"  Position: ({pos[0]}, {pos[1]})")
+    party = game_info.get('party')
+    if party:
+        print(f"  Party: {len(party)} Pokemon")
+        if party[0].get('level'):
+            print(f"  First Pokemon: Level {party[0]['level']}, "
+                  f"HP {party[0].get('hp_current', 0)}/{party[0].get('hp_max', 0)}")
+
+    if result.get('state_changed') is False:
+        print("  Warning: State unchanged - action may not have had effect")
+    if result.get('stuck_count', 0) > 3:
+        print(f"  Warning: Stuck for {result['stuck_count']} steps")
+    if game_info.get('screen_text'):
+        text_preview = game_info['screen_text'][:80].replace('\n', ' ')
+        print(f"  Screen Text: {text_preview}...")
+    print()
+
+
+def sync_cache_metrics(agent: PokemonAgent, metrics: MetricsCollector) -> None:
+    """Copy action-cache counters into the metrics collector."""
+    if agent.action_cache:
+        cache_stats = agent.action_cache.get_stats()
+        metrics.cache.hits = cache_stats['hits']
+        metrics.cache.misses = cache_stats['misses']
+        metrics.cache.evictions = cache_stats.get('evictions', 0)
+        metrics.cache.update_size(cache_stats['size'], cache_stats.get('max_size', 100))
+
+
+def run_loop(agent: PokemonAgent, pyboy: PyBoy, args, metrics: MetricsCollector,
+             log_data: dict, log_path: Path, frames_per_step: int) -> None:
+    """Run the agent loop, logging and reporting each step."""
+    for step in range(args.steps):
+        result = agent.step()
+
+        log_data["steps_log"].append(build_step_log(step, result))
+        sync_cache_metrics(agent, metrics)
+
+        # Save log after each step (in case of crash)
+        with open(log_path, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, indent=2, ensure_ascii=False)
+
+        print_step_report(step, args.steps, result)
+
+        # Let game run for multiple frames to smooth out gameplay
+        for _ in range(frames_per_step):
+            pyboy.tick()
+
+
+def print_final_progress(agent: PokemonAgent) -> None:
+    """Print the end-of-run goal progress summary."""
+    progress = agent.strategy.get_progress_summary()
+    print("\n" + "=" * 60)
+    print("Final Progress Summary")
+    print("=" * 60)
+    print(f"Completed Goals: {progress['completed_goals']}/{progress['total_goals']} "
+          f"({progress['progress_percent']:.1f}%)")
+    print(f"Current Phase: {progress['current_phase']}")
+    print(f"Total Steps: {progress['step_count']}")
+    if progress['completed_goal_names']:
+        print(f"Completed: {', '.join(progress['completed_goal_names'])}")
+    print("=" * 60)
+
+
+def main():
+    """Main function."""
+    load_dotenv()
+    config = get_config()
+    setup_tesseract()
+
+    args = build_parser(config).parse_args()
+
+    # Library modules (agent, game state, providers) log diagnostics through
+    # the logging module; per-step gameplay output stays on stdout via print.
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+
+    apply_profile(config, args)
+    rom_path = validate_rom(args.rom)
+    pyboy = init_pyboy(rom_path, args)
+
+    metrics = MetricsCollector()
+    agent, frames_per_step = build_agent(pyboy, args, config, metrics)
+
+    log_path = make_log_path(args)
+    ocr_enabled = not (args.no_ocr or args.fast) and config.get("ocr.enabled", True)
     log_data = {
         "rom": str(rom_path),
         "steps": args.steps,
         "llm_provider": args.llm_provider,
         "model": args.model,
-        "profile": active_profile,
+        "profile": args.profile or config.get_active_profile(),
         "ocr_enabled": ocr_enabled,
-        "ocr_interval": ocr_interval,
+        "ocr_interval": 100 if args.fast else max(args.ocr_interval, 10),
         "start_time": datetime.now().isoformat(),
         "steps_log": []
     }
-    
+
     print(f"Starting agent for {args.steps} steps...")
     print(f"Logging to: {log_path}")
     print("Press Ctrl+C to stop early\n")
-    
+
     try:
-        for step in range(args.steps):
-            result = agent.step()
-            
-            # Log this step
-            step_log = {
-                "step": step + 1,
-                "action": result['action'],
-                "success": result['success'],
-                "frame_count": result['game_info']['frame_count'],
-                "screen_text": result['game_info']['screen_text'],
-                "game_state": result['game_info'].get('game_state'),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # Add progress info if available
-            if result.get('progress'):
-                step_log["progress"] = result['progress']
-            
-            # Add memory-based info if available
-            if result['game_info'].get('current_map'):
-                step_log["location"] = result['game_info']['current_map'].get('map_name')
-            if result['game_info'].get('player_position'):
-                step_log["position"] = result['game_info']['player_position']
-            if result['game_info'].get('party'):
-                step_log["party_size"] = len(result['game_info']['party'])
-                if result['game_info']['party']:
-                    step_log["first_pokemon_level"] = result['game_info']['party'][0].get('level')
-            
-            log_data["steps_log"].append(step_log)
-            
-            # Update cache metrics from action_cache
-            if agent.action_cache:
-                cache_stats = agent.action_cache.get_stats()
-                metrics.cache.hits = cache_stats['hits']
-                metrics.cache.misses = cache_stats['misses']
-                metrics.cache.evictions = cache_stats.get('evictions', 0)
-                metrics.cache.update_size(cache_stats['size'], cache_stats.get('max_size', 100))
-            
-            # Save log after each step (in case of crash)
-            with open(log_path, 'w', encoding='utf-8') as f:
-                json.dump(log_data, f, indent=2, ensure_ascii=False)
-            
-            print(f"Step {step + 1}/{args.steps}")
-            print(f"  Action: {result['action']}")
-            print(f"  Success: {result['success']}")
-            game_info = result['game_info']
-            if game_info.get('game_state'):
-                print(f"  Game State: {game_info['game_state']}")
-            
-            # Show progress if available
-            if result.get('progress'):
-                progress = result['progress']
-                print(f"  Progress: {progress['completed_goals']}/{progress['total_goals']} goals "
-                      f"({progress['progress_percent']:.1f}%)")
-                if progress['completed_goal_names']:
-                    recent_completed = progress['completed_goal_names'][-3:]
-                    print(f"  Recent Goals: {', '.join(recent_completed)}")
-            
-            # Show memory-based info if available
-            if game_info.get('current_map'):
-                map_info = game_info['current_map']
-                if map_info.get('map_name') and map_info.get('map_name') != 'Unknown':
-                    print(f"  Location: {map_info['map_name']}")
-            if game_info.get('player_position'):
-                pos = game_info['player_position']
-                if pos and pos != (0, 0):
-                    print(f"  Position: ({pos[0]}, {pos[1]})")
-            if game_info.get('party'):
-                party = game_info['party']
-                if party:
-                    print(f"  Party: {len(party)} Pokemon")
-                    if party[0].get('level'):
-                        print(f"  First Pokemon: Level {party[0]['level']}, "
-                              f"HP {party[0].get('hp_current', 0)}/{party[0].get('hp_max', 0)}")
-            
-            if result.get('state_changed') is False:
-                print("  Warning: State unchanged - action may not have had effect")
-            if result.get('stuck_count', 0) > 3:
-                print(f"  Warning: Stuck for {result['stuck_count']} steps")
-            if game_info.get('screen_text'):
-                text_preview = game_info['screen_text'][:80].replace('\n', ' ')
-                print(f"  Screen Text: {text_preview}...")
-            print()
-            
-            # Let game run for multiple frames to smooth out gameplay
-            for _ in range(frames_per_step):
-                pyboy.tick()
-    
+        run_loop(agent, pyboy, args, metrics, log_data, log_path, frames_per_step)
     except KeyboardInterrupt:
         print("\nStopped by user")
         log_data["end_time"] = datetime.now().isoformat()
         log_data["stopped_by_user"] = True
     except Exception as e:
         print(f"\nError: {e}")
-        import traceback
         traceback.print_exc()
         log_data["end_time"] = datetime.now().isoformat()
         log_data["error"] = str(e)
         log_data["traceback"] = traceback.format_exc()
     finally:
-        # Finalize log
         log_data["end_time"] = log_data.get("end_time", datetime.now().isoformat())
         log_data["total_steps_completed"] = len(log_data["steps_log"])
-        
-        # Add final progress summary
-        if hasattr(agent, 'strategy') and agent.strategy:
+
+        if agent.strategy:
             log_data["final_progress"] = agent.strategy.get_progress_summary()
-            print("\n" + "=" * 60)
-            print("Final Progress Summary")
-            print("=" * 60)
-            progress = agent.strategy.get_progress_summary()
-            print(f"Completed Goals: {progress['completed_goals']}/{progress['total_goals']} "
-                  f"({progress['progress_percent']:.1f}%)")
-            print(f"Current Phase: {progress['current_phase']}")
-            print(f"Total Steps: {progress['step_count']}")
-            if progress['completed_goal_names']:
-                print(f"Completed: {', '.join(progress['completed_goal_names'])}")
-            print("=" * 60)
-        
-        # Update cache metrics one final time
-        if agent.action_cache:
-            cache_stats = agent.action_cache.get_stats()
-            metrics.cache.hits = cache_stats['hits']
-            metrics.cache.misses = cache_stats['misses']
-            metrics.cache.evictions = cache_stats.get('evictions', 0)
-            metrics.cache.update_size(cache_stats['size'], cache_stats.get('max_size', 100))
-        
-        # Add metrics to log
+            print_final_progress(agent)
+
+        sync_cache_metrics(agent, metrics)
         log_data["metrics"] = metrics.get_all_stats()
-        
-        # Print metrics summary
         print("\n" + metrics.get_summary())
-        
+
         with open(log_path, 'w', encoding='utf-8') as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
-        
+
         print(f"\nLog saved to: {log_path}")
         print("Shutting down...")
         pyboy.stop()
@@ -480,4 +487,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
