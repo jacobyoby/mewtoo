@@ -28,3 +28,4 @@ not a decision gap.
 | 10 | 330 dialog steps parked at one tile | facing the bedroom TV: A re-opens its text box the instant it closes, so "dialog -> A" loops forever | dialog-loop breaker: 25 same-tile dialog steps -> B, then step away |
 | 11 | Every bedroom step logged "dialog" with no text box on screen | the Oak-cutscene fix keyed on OCR text length > 10; the bedroom wallpaper OCRs as ~40 chars of garbage every frame | dialog = detect_text_box() pixels only |
 | 12 | Still "dialog" everywhere after #11 | the "ALWAYS validate overworld" block re-added dialog via detect_dialog_box_visually(), which reads the wallpaper as a text box | all 8 classification call sites -> detect_text_box() |
+| 13 | Outdoors in Pallet Town, every step "dialog" again | text-box detector keyed on brightness alone; outdoor ground tiles are 67% white | add mid-tone test: box 3% mid-greys vs tiles 28% |

@@ -175,13 +175,21 @@ class GameState:
         return filepath
     
     def detect_text_box(self, image: np.ndarray | None = None,
-                        white_threshold: float = 0.5) -> bool:
-        """Detect a Gen 1 text box by its solid white bottom panel.
+                        white_threshold: float = 0.5,
+                        mid_tone_threshold: float = 0.12) -> bool:
+        """Detect a Gen 1 text box in the bottom panel of the screen.
 
-        Sharper than detect_dialog_box_visually(), which keys on edges and
-        false-positives on textured walls (the bedroom wallpaper reads as a
-        dialog box). Measured on real frames: overworld bottom-third is
-        8-22% white, an open text box is ~78%.
+        A text box is a flat white panel with black text: almost no
+        mid-greys. Outdoor tiles are also bright but heavily dithered, so
+        brightness alone is not enough. Measured on real frames
+        (white / mid-tone / dark in the bottom 40%):
+
+            bedroom, no box      10% / 3%  / 87%
+            Oak dialog, BOX      78% / 3%  / 19%
+            Pallet Town, no box  67% / 28% / 5%
+
+        Brightness separates the box from indoor scenes; the mid-tone
+        fraction separates it from outdoor ground tiles.
         """
         if image is None:
             image = self.get_screen_image()
@@ -190,7 +198,9 @@ class GameState:
         h = image.shape[0]
         panel = image[int(h * 0.60):, :, :3] if len(image.shape) == 3 else image[int(h * 0.60):]
         gray = panel.mean(axis=2) if panel.ndim == 3 else panel
-        return float((gray > 200).mean()) > white_threshold
+        white_frac = float((gray > 200).mean())
+        mid_frac = float(((gray >= 60) & (gray <= 200)).mean())
+        return white_frac > white_threshold and mid_frac < mid_tone_threshold
 
     def detect_dialog_box_visually(self, image: np.ndarray | None = None) -> bool:
         """Detect if a dialogue box is present visually (even if OCR fails).
