@@ -102,7 +102,9 @@ No explanations. Just the action."""
         self._creation_over = False  # Latched on first real overworld sighting
         self._phantom_menu = False  # Menu state that B presses cannot close
         self._dialog_loop_steps = 0  # Consecutive dialog steps at one tile
+        self._edge_scan_steps = 0  # Lateral sweep progress along a blocking wall
         self._dialog_loop_pos = None
+        self._edge_scan_steps = 0  # Lateral sweep progress along a blocking wall
 
         # Movement validation tracking
         self.movement_failures = {'UP': 0, 'DOWN': 0, 'LEFT': 0, 'RIGHT': 0}
@@ -535,8 +537,29 @@ No explanations. Just the action."""
         action = self.strategy.suggest_action_for_goal(
             goal, obs.game_state, self._memory_data(obs.game_info)
         )
-        if not action or action in self.blocked_directions:
+        if not action:
             return None
+        if action in self.blocked_directions:
+            # The route direction is a known wall. Rather than surrendering
+            # to random exploration, sweep along the wall: Pallet Town's
+            # Route 1 exit is one specific column in the north fence, so
+            # runs reached the top row (y=1) and stalled there. Alternating
+            # lateral steps scan for the gap, then the route resumes.
+            perpendicular = {
+                'UP': ('LEFT', 'RIGHT'), 'DOWN': ('LEFT', 'RIGHT'),
+                'LEFT': ('UP', 'DOWN'), 'RIGHT': ('UP', 'DOWN'),
+            }.get(action)
+            if not perpendicular:
+                return None
+            options = [d for d in perpendicular if d not in self.blocked_directions]
+            if not options:
+                return None
+            self._edge_scan_steps += 1
+            scan = options[(self._edge_scan_steps // 3) % len(options)]
+            logger.info(f"[ROUTE] Step {obs.step_count}: {action} blocked -- "
+                        f"scanning {scan} along the wall for an opening")
+            return scan
+        self._edge_scan_steps = 0
         return action
 
     def _first_action_policy(self, obs: "Observation") -> str | None:

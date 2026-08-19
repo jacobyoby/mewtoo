@@ -94,10 +94,13 @@ class TestRoutePolicyWins:
         # Route steps aside so stuck-breaking logic can run
         assert agent._route_policy(agent._observe()) is None
 
-    def test_yields_when_route_direction_is_a_known_wall(self, mock_llm_provider, mock_pyboy):
+    def test_scans_along_the_wall_when_route_direction_is_blocked(self, mock_llm_provider, mock_pyboy):
+        # Superseded "yield when blocked": giving up handed control to random
+        # exploration and runs stalled at Pallet Town's north fence. The route
+        # now sweeps sideways looking for the gap.
         agent = self._agent(mock_llm_provider, mock_pyboy, 0x00, (10, 10))
         agent.blocked_directions.add("UP")
-        assert agent._route_policy(agent._observe()) is None
+        assert agent._route_policy(agent._observe()) in ("LEFT", "RIGHT")
 
 
 class TestDoorExitManeuver:
@@ -143,3 +146,45 @@ def test_step_updates_map_tracking(mock_llm_provider, mock_pyboy):
     gs.execute_action = Mock(return_value=True)
     agent.step()
     assert 0x0B in agent.strategy.visited_maps
+
+
+class TestEdgeScan:
+    """A blocked route direction sweeps along the wall instead of giving up."""
+
+    def _agent(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+
+        from game_state import GameState
+        from pokemon_agent import PokemonAgent
+        gs = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, gs)
+        gs.get_game_info = Mock(return_value={
+            "screen_text": "", "frame_count": 100, "game_state": "overworld",
+            "party": [], "player_position": (10, 1),
+            "current_map": {"map_id": 0x00, "map_name": "Pallet Town"},
+        })
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 300
+        agent.strategy.mark_goal_complete("start_game")
+        return agent
+
+    def test_blocked_north_scans_laterally(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        agent.blocked_directions.add("UP")
+        actions = [agent.get_action() for _ in range(6)]
+        assert all(a in ("LEFT", "RIGHT") for a in actions)
+
+    def test_scan_alternates_direction_over_time(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        agent.blocked_directions.add("UP")
+        actions = [agent.get_action() for _ in range(12)]
+        assert len(set(actions)) == 2  # sweeps both ways, not one direction forever
+
+    def test_unblocked_route_resumes_and_resets_scan(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        agent.blocked_directions.add("UP")
+        agent.get_action()
+        agent.blocked_directions.discard("UP")
+        assert agent.get_action() == "UP"
+        assert agent._edge_scan_steps == 0

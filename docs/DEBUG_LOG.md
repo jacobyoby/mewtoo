@@ -33,3 +33,7 @@ not a decision gap.
 | 15 | Route encoded correctly but runs still wandered into the lab | the route was only a *suggestion*, competing with random exploration and the LLM for control | promote it to _route_policy in the chain: on a known map it wins, yielding only when stuck or blocked |
 | 16 | Oscillates Pallet Town <-> Red's House 1F | leaving a building drops you directly below its door facing south, so "head north" walks straight back inside | door-exit maneuver: step DOWN then LEFT clear of the doorway before resuming north |
 | 17 | Door-exit maneuver never fired | strategy.update_phase() ran only inside get_prompt(), i.e. only when the chain reached the LLM — the route policy short-circuits before that, so map transitions went unseen | update_phase() now runs every step() |
+| 18 | Touches Pallet Town's north edge (y=1) then drifts back to the lab | Route 1's exit is one column in the north fence; the route yielded whenever UP was blocked, handing control to random exploration | edge-scan: a blocked route direction sweeps laterally along the wall looking for the gap |
+
+Note: test_metrics_track_cache_operations flaked once during a live emulator
+run (passed in isolation and on re-run) — resource contention, not a defect.
