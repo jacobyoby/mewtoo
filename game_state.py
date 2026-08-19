@@ -124,7 +124,12 @@ class GameState:
         is_blank = False
         blank_type = 'none'
         
-        if white_percentage >= white_threshold:
+        # A mostly-white screen only counts as blank if it also has no dark
+        # pixels: menus, dialog boxes, and the title screen are white-backed
+        # WITH black text (~5-10% dark), while a real transition flash has
+        # essentially none. Treating text screens as blank sent the agent
+        # into blind A-mashing on menus it could have read.
+        if white_percentage >= white_threshold and black_percentage < 0.02:
             is_blank = True
             blank_type = 'white'
         elif black_percentage >= black_threshold:

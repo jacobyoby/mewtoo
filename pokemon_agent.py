@@ -765,8 +765,10 @@ No explanations. Just the action."""
                 if suggested_action and not self.strategy.should_explore(self.stuck_count, action_diversity):
                     action = suggested_action
         
-        # Force exploration when stuck (before getting action)
-        if self.stuck_count > 5:
+        # Force exploration when stuck (before getting action).
+        # Overworld only: random arrows inside a menu, dialog, or transition
+        # just wiggle the cursor -- the policy chain owns those states.
+        if self.stuck_count > 5 and pre_game_state == 'overworld':
             # Only save screenshot if screen is not blank
             screen_image = self.game_state.get_screen_image()
             blank_info = self.game_state.detect_blank_screen(screen_image)
