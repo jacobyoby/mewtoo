@@ -164,6 +164,16 @@ def build_parser(config) -> argparse.ArgumentParser:
         action="store_true",
         help="Disable the two-tier planner (actor model only)"
     )
+    parser.add_argument(
+        "--load-state",
+        nargs="?",
+        const="auto",
+        default=None,
+        metavar="PATH",
+        help="Boot from a PyBoy save state instead of a cold start. With no "
+             "PATH, uses <rom>.state (the file the in-window Z hotkey writes). "
+             "Skips boot/intro/naming entirely."
+    )
     return parser
 
 
@@ -227,6 +237,18 @@ def validate_rom(rom_arg: str) -> Path:
     return rom_path
 
 
+def resolve_state_path(rom_path: Path, args) -> Path | None:
+    """Resolve --load-state to a real file, or None for a cold boot."""
+    if not args.load_state:
+        return None
+    state_path = Path(f"{rom_path}.state") if args.load_state == "auto" else Path(args.load_state)
+    if not state_path.exists():
+        print(f"Error: save state not found: {state_path}")
+        print("Create one by pressing Z in the PyBoy window during a run.")
+        sys.exit(1)
+    return state_path
+
+
 def init_pyboy(rom_path: Path, args) -> PyBoy:
     """Initialize PyBoy with the ROM and wait for the game to load."""
     print(f"Loading ROM: {rom_path}")
@@ -258,9 +280,18 @@ def init_pyboy(rom_path: Path, args) -> PyBoy:
         traceback.print_exc()
         sys.exit(1)
 
-    # Wait for game to load — boot + intro is ~600 frames
-    for _ in range(600):
-        pyboy.tick()
+    state_path = resolve_state_path(rom_path, args)
+    if state_path is not None:
+        # Resume mid-game: no boot/intro wait needed
+        with open(state_path, "rb") as f:
+            pyboy.load_state(f)
+        for _ in range(10):
+            pyboy.tick()
+        print(f"Resumed from save state: {state_path}")
+    else:
+        # Wait for game to load — boot + intro is ~600 frames
+        for _ in range(600):
+            pyboy.tick()
 
     print("Game loaded!")
     return pyboy
