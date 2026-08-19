@@ -403,11 +403,14 @@ class GameState:
                         else:
                             # Black screen - likely transition or loading
                             game_state = "loading"
-                    elif len(screen_text.strip()) > 10 or self.detect_dialog_box_visually(screen_image):
+                    elif self.detect_text_box(screen_image):
                         # Memory says overworld, but a text box is on screen:
                         # cutscene dialog (e.g. Oak's intro) keeps a valid
-                        # player position while movement is locked. Without
-                        # this check the agent mashes arrows at dialog.
+                        # player position while movement is locked. Use the
+                        # pixel check only -- OCR text length and the
+                        # edge-based detector both fire on the bedroom
+                        # wallpaper (it OCRs as ~40 chars of garbage), which
+                        # marked 800 straight overworld steps as "dialog".
                         game_state = "dialog"
                     else:
                         # Screen has content - safe to report overworld
