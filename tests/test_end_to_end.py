@@ -81,7 +81,7 @@ class TestEarlyGameSequence:
         
         # Agent should navigate menu
         actions_taken = []
-        for step in range(20):
+        for _step in range(20):
             action = agent.get_action()
             actions_taken.append(action)
             agent.step()
@@ -137,7 +137,7 @@ class TestEarlyGameSequence:
         actions_taken = []
         initial_position = mock_get_position()
         
-        for step in range(30):
+        for _step in range(30):
             action = agent.get_action()
             actions_taken.append(action)
             agent.step()
@@ -184,7 +184,7 @@ class TestCompleteGameplayFlow:
         
         # Agent should handle dialogue
         actions_taken = []
-        for step in range(15):
+        for _step in range(15):
             action = agent.get_action()
             actions_taken.append(action)
             agent.step()
@@ -221,7 +221,7 @@ class TestCompleteGameplayFlow:
         
         # Agent should handle transitions
         actions_taken = []
-        for step in range(25):
+        for _step in range(25):
             action = agent.get_action()
             actions_taken.append(action)
             agent.step()

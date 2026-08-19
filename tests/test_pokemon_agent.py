@@ -173,8 +173,6 @@ class TestPokemonAgent:
         # History should be limited when we add actions through step() or get_action()
         # But direct append doesn't enforce limit - limit is enforced in step() method
         # So we need to check that step() enforces the limit
-        initial_len = len(agent.action_history)
-        
         # The limit is enforced in step() method when appending new actions
         # For this test, we verify that max_history is set correctly
         assert agent.max_history > 0

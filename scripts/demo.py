@@ -7,9 +7,9 @@ script_dir = Path(__file__).parent
 project_root = script_dir.parent
 sys.path.insert(0, str(project_root))
 
-import os
+import os  # noqa: E402
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 
 
 def demo_llm_providers():

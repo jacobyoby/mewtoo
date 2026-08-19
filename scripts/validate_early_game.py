@@ -235,7 +235,7 @@ def capture_representative_screenshot(game_state: GameState, num_frames: int = 5
         return None
     
     # Filter out blank screens
-    non_blank_screens = [(img, info) for img, info in zip(screenshots, blank_detections) if not info['is_blank']]
+    non_blank_screens = [(img, info) for img, info in zip(screenshots, blank_detections, strict=True) if not info['is_blank']]
     
     if non_blank_screens:
         # Return the first non-blank screen

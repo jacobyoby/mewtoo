@@ -66,7 +66,7 @@ def test_memory_reader(rom_path: str):
         try:
             party = memory_reader.read_pokemon_party()
             print(f"   Party Size: {len(party)}")
-            for i, pokemon in enumerate(party):
+            for _i, pokemon in enumerate(party):
                 print(f"   Slot {pokemon['slot']}: Species {pokemon['species']}, "
                       f"Level {pokemon['level']}, "
                       f"HP {pokemon['hp_current']}/{pokemon['hp_max']} "

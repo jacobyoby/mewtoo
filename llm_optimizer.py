@@ -110,7 +110,7 @@ class PromptOptimizer:
         if screen_text:
             # Keep first 80 chars, prioritize lines with more text
             lines = screen_text.split('\n')
-            important_lines = [l for l in lines if len(l.strip()) > 3]
+            important_lines = [line for line in lines if len(line.strip()) > 3]
             if important_lines:
                 screen_text_short = ' '.join(important_lines[:2])[:80]
             else:

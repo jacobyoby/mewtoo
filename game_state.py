@@ -583,7 +583,7 @@ class GameState:
                 for _ in range(frames):
                     self.pyboy.tick()
                 return True
-            except:
+            except (ValueError, IndexError):
                 return False
         
         return False

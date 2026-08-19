@@ -105,7 +105,7 @@ class TestErrorRecovery:
         game_state.execute_action = Mock(return_value=True)
         
         # Agent should work even if memory reading fails
-        for step in range(10):
+        for _step in range(10):
             try:
                 agent.step()
             except Exception as e:
@@ -134,7 +134,7 @@ class TestStuckDetection:
         
         # Run many steps with same state
         actions_taken = []
-        for step in range(50):
+        for _step in range(50):
             action = agent.get_action()
             actions_taken.append(action)
             agent.step()
@@ -174,7 +174,7 @@ class TestStuckDetection:
         actions_taken = []
         initial_position = mock_get_position()
         
-        for step in range(30):
+        for _step in range(30):
             action = agent.get_action()
             actions_taken.append(action)
             agent.step()
@@ -207,7 +207,7 @@ class TestStuckDetection:
         
         # Run many steps with same state
         actions_taken = []
-        for step in range(40):
+        for _step in range(40):
             action = agent.get_action()
             actions_taken.append(action)
             agent.step()
@@ -241,7 +241,7 @@ class TestEdgeCaseScenarios:
         game_state.execute_action = Mock(return_value=True)
         
         # Agent should handle empty text
-        for step in range(10):
+        for _step in range(10):
             try:
                 agent.step()
             except Exception as e:
@@ -266,7 +266,7 @@ class TestEdgeCaseScenarios:
         game_state.execute_action = Mock(return_value=True)
         
         # Agent should handle long text
-        for step in range(10):
+        for _step in range(10):
             try:
                 agent.step()
             except Exception as e:
@@ -294,7 +294,7 @@ class TestEdgeCaseScenarios:
         game_state.execute_action = Mock(return_value=True)
         
         # Agent should handle rapid changes
-        for step in range(20):
+        for _step in range(20):
             try:
                 agent.step()
             except Exception as e:

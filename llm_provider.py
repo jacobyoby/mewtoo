@@ -160,7 +160,7 @@ class OllamaProvider(LLMProvider):
             latency = time.time() - start_time
             if self.metrics:
                 self.metrics.llm.record_call(latency, timeout=True)
-            raise ValueError(f"LLM call timed out after 30 seconds. Model: {self.model}")
+            raise ValueError(f"LLM call timed out after 30 seconds. Model: {self.model}") from None
         except Exception as e:
             latency = time.time() - start_time
             if self.metrics:

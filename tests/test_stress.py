@@ -206,7 +206,7 @@ class TestResourceLimits:
         game_state.execute_action = Mock(return_value=True)
         
         # Run many steps with unique states (should trigger evictions)
-        for step in range(200):
+        for _step in range(200):
             agent.step()
         
             # Check cache size is within limit
@@ -215,8 +215,6 @@ class TestResourceLimits:
                 assert cache_size <= 50, f"Cache size {cache_size} exceeds limit of 50"
                 
                 # Check evictions occurred (if we ran enough steps with unique states)
-                stats = metrics.get_all_stats()
-                evictions = stats['cache']['evictions']
                 # Evictions should occur when cache fills up, but might not if we didn't fill it
                 # Just verify cache respects the limit
                 assert cache_size <= 50, "Cache respects size limit"
@@ -254,7 +252,7 @@ class TestResourceLimits:
         game_state.execute_action = Mock(return_value=True)
         
         # Run more steps than history limit
-        for step in range(200):
+        for _step in range(200):
             agent.step()
         
             # Check history size is within limit
