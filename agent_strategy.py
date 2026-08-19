@@ -40,6 +40,9 @@ class GameEvent:
 
 class AgentStrategy:
     """Goal-oriented strategy system for Pokemon agent."""
+
+    # Pallet Town interiors: Red's House 1F/2F, Blue's House, Oak's Lab
+    BUILDING_MAPS = {0x25, 0x26, 0x27, 0x28}
     
     def __init__(self, exploration_rate: float = 0.3, max_recent_events: int = 10):
         """Initialize agent strategy.
@@ -55,6 +58,8 @@ class AgentStrategy:
         self.exploration_rate = max(0.0, min(1.0, exploration_rate))  # Clamp between 0 and 1
         self.step_count = 0
         self.visited_maps: set[int] = set()  # Map IDs seen this run
+        self._last_map_id: int | None = None
+        self._exit_maneuver_steps = 0  # Steps left in a door-exit maneuver
 
         # Initialize default goals
         self._initialize_default_goals()
@@ -127,6 +132,12 @@ class AgentStrategy:
             map_id = (memory_data.get("current_map") or {}).get("map_id")
             if map_id is not None:
                 self.visited_maps.add(map_id)
+                # Leaving a building drops the player directly below its
+                # door, facing south -- so a plain "head north" walks
+                # straight back inside. Queue a short sidestep instead.
+                if (map_id == 0x00 and self._last_map_id in self.BUILDING_MAPS):
+                    self._exit_maneuver_steps = 3
+                self._last_map_id = map_id
 
         if game_state == "title_screen":
             self.current_phase = GamePhase.TITLE_SCREEN
@@ -206,6 +217,11 @@ class AgentStrategy:
                 elif map_id == 0x25:  # Red's House 1F: exit at the bottom
                     return "DOWN"
                 elif map_id == 0x00:  # Pallet Town: north edge triggers Oak
+                    if self._exit_maneuver_steps > 0:
+                        # Just stepped out of a building: move clear of the
+                        # doorway before heading north, or "UP" re-enters it
+                        self._exit_maneuver_steps -= 1
+                        return "DOWN" if self._exit_maneuver_steps == 2 else "LEFT"
                     return "UP"
                 elif map_id == 0x28:  # Oak's Lab
                     # The balls cannot be taken until Oak's cutscene fires,

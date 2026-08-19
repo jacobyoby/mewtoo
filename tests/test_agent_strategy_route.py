@@ -98,3 +98,29 @@ class TestRoutePolicyWins:
         agent = self._agent(mock_llm_provider, mock_pyboy, 0x00, (10, 10))
         agent.blocked_directions.add("UP")
         assert agent._route_policy(agent._observe()) is None
+
+
+class TestDoorExitManeuver:
+    """Leaving a building must not walk straight back in."""
+
+    def _strategy_after_exit(self):
+        s = AgentStrategy()
+        s.update_phase("overworld", {"current_map": {"map_id": 0x25}, "party": []})  # inside
+        s.update_phase("overworld", {"current_map": {"map_id": 0x00}, "party": []})  # stepped out
+        return s
+
+    def test_sidesteps_before_heading_north(self):
+        s = self._strategy_after_exit()
+        goal = next(g for g in s.goals if g.name == "get_starter")
+        md = {"current_map": {"map_id": 0x00}, "player_position": (5, 6), "party": []}
+        seq = [s.suggest_action_for_goal(goal, "overworld", md) for _ in range(5)]
+        assert seq[0] == "DOWN"          # step away from the doorway
+        assert "LEFT" in seq[1:3]        # move to a different column
+        assert seq[-1] == "UP"           # then resume heading north
+
+    def test_no_maneuver_when_not_leaving_a_building(self):
+        s = AgentStrategy()
+        s.update_phase("overworld", {"current_map": {"map_id": 0x00}, "party": []})
+        goal = next(g for g in s.goals if g.name == "get_starter")
+        md = {"current_map": {"map_id": 0x00}, "player_position": (5, 6), "party": []}
+        assert s.suggest_action_for_goal(goal, "overworld", md) == "UP"
