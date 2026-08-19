@@ -44,3 +44,26 @@ Probe findings (scripts/probe_pallet_exit.py, from a Pallet Town save state):
 - 0xD361 = Y, 0xD362 = X; the agent's reported (x, y) orientation is correct.
 - Walking north from columns 1-5 enters Red's House; 6-11 stay in town.
 - Coordinates only read coherently with a >=24-frame settle after release.
+
+## Blocked: Pallet Town exit (as of 2026-08-18 22:40)
+
+Re-probed with correct single-tile movement (hold 12). Walking north from
+each column of Pallet Town:
+
+    x=5   -> Red's House door
+    x=10  -> reaches the top row (10,1), then a hard wall: 7 further UP
+             presses do not move the player
+    others-> blocked at y=2 or y=6 by buildings/fences
+
+No column crossed into Route 1. A follow-up sweep along the top edge
+returned self-contradictory coordinates (x jumped 10 -> 7 after a single
+RIGHT), so blind coordinate probing has hit its limit: interior maps use
+their own coordinate frame and the reads are only trustworthy on a
+settled overworld frame.
+
+Next approaches, in order of promise:
+1. Vision — gemma3:4b is a multimodal model. Feed it the screenshot so it
+   can see the map instead of navigating by coordinate heuristics.
+2. Map data — read Pallet Town's connection table from the ROM header
+   rather than probing for the exit tile.
+3. Keep probing with a settle-and-verify wrapper around every move.
