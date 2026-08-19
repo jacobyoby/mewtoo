@@ -114,3 +114,20 @@ Measured facts now encoded:
   "Now, RED, which POKEMON do you want?".
 - Movement is locked during that prompt, and pressing A while facing Oak
   just replays it — the ball grab needs the player to step aside first.
+
+## Lab ball-grab: characterized, not yet solved
+
+After the Oak cutscene the player is free (movement unlocks ~25 A presses
+in, with settle >= 30 frames — shorter settles silently swallow presses).
+But every attempt to take a ball snaps back to (5, 3):
+
+    press A anywhere near Oak -> his "which POKEMON do you want?" prompt
+    re-opens -> player is locked at (5, 3) again
+
+So the ball approach must avoid pressing A while adjacent to Oak: walk
+clear of him first (down/right), approach a ball from below, and only
+then interact. That is the next thing to encode.
+
+Input timing note worth keeping: dialog advance needs hold=8 with
+settle>=30. At settle=18 presses are dropped and long cutscenes appear to
+hang.
