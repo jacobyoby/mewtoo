@@ -4,6 +4,7 @@ Version: 0.0.7
 """
 import argparse
 import json
+import logging
 import os
 import sys
 from datetime import datetime
@@ -156,9 +157,21 @@ def main():
         choices=["aggressive", "conservative", "balanced"],
         help="Strategy profile to use (aggressive, conservative, balanced). Overrides config.yaml active_profile."
     )
-    
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Show debug-level diagnostics (stuck details, screenshot skips)"
+    )
+
     args = parser.parse_args()
-    
+
+    # Library modules (agent, game state, providers) log diagnostics through
+    # the logging module; per-step gameplay output stays on stdout via print.
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+
     # Apply profile if specified
     if args.profile:
         applied_settings = config.apply_profile(args.profile)

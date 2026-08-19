@@ -1,4 +1,5 @@
 """Game state extraction and management for Pokemon Red."""
+import logging
 import os
 import time
 from datetime import datetime
@@ -11,6 +12,8 @@ from pyboy import PyBoy
 
 from memory_reader import MemoryReader, get_map_name
 from ocr_enhancer import OCREnhancer
+
+logger = logging.getLogger(__name__)
 
 
 class GameState:
@@ -71,8 +74,8 @@ class GameState:
             try:
                 self.memory_reader = MemoryReader(pyboy)
             except Exception as e:
-                print(f"Warning: Could not initialize memory reader: {e}")
-                print("Falling back to OCR-only mode")
+                logger.warning(f"Could not initialize memory reader: {e}")
+                logger.warning("Falling back to OCR-only mode")
                 self.memory_enabled = False
                 self.memory_reader = None
         else:
@@ -240,7 +243,7 @@ class GameState:
                 self.last_ocr_frame = self.pyboy.frame_count
                 return text
             except Exception as e:
-                print(f"Enhanced OCR error: {e}, falling back to standard OCR")
+                logger.warning(f"Enhanced OCR error: {e}, falling back to standard OCR")
         
         # Fallback to standard OCR
         # Improved preprocessing for Game Boy screens
@@ -305,7 +308,7 @@ class GameState:
             ocr_duration = time.time() - ocr_start_time
             if self.metrics:
                 self.metrics.performance.record_ocr_time(ocr_duration)
-            print(f"OCR error: {e}")
+            logger.warning(f"OCR error: {e}")
             return ""
     
     def get_game_info(self) -> dict:

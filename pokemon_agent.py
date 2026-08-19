@@ -2,6 +2,7 @@
 
 Version: 0.0.7
 """
+import logging
 import random
 import time
 from collections import Counter, deque
@@ -13,6 +14,8 @@ from game_state import GameState
 from llm_optimizer import ActionCache, PromptOptimizer, RepetitionDetector
 from llm_provider import LLMProvider
 from metrics import MetricsCollector
+
+logger = logging.getLogger(__name__)
 
 
 class PokemonAgent:
@@ -89,10 +92,10 @@ No explanations. Just the action."""
             
             if blank_info['is_blank']:
                 # Screen is blank - don't save screenshot, but log the issue
-                print(f"[STUCK] Skipping screenshot - screen is blank ({blank_info['blank_type']}, {blank_info['white_percentage']:.1%} white, {blank_info['black_percentage']:.1%} black)")
-                print(f"[STUCK] Stuck reason: {reason}, Step: {step_count}")
+                logger.debug(f"[STUCK] Skipping screenshot - screen is blank ({blank_info['blank_type']}, {blank_info['white_percentage']:.1%} white, {blank_info['black_percentage']:.1%} black)")
+                logger.info(f"[STUCK] Stuck reason: {reason}, Step: {step_count}")
                 if details:
-                    print(f"[STUCK] Details: {details}")
+                    logger.debug(f"[STUCK] Details: {details}")
                 return
             
             # Screen has content - save screenshot
@@ -107,11 +110,11 @@ No explanations. Just the action."""
             filename += ".png"
             
             screenshot_path = self.game_state.save_screenshot(filename=filename)
-            print(f"[STUCK] Saved screenshot ({reason}): {screenshot_path}")
+            logger.info(f"[STUCK] Saved screenshot ({reason}): {screenshot_path}")
             if details:
-                print(f"[STUCK] Details: {details}")
+                logger.debug(f"[STUCK] Details: {details}")
         except Exception as e:
-            print(f"[STUCK] Failed to save screenshot: {e}")
+            logger.warning(f"[STUCK] Failed to save screenshot: {e}")
     
     def get_prompt(self) -> str:
         """Build optimized prompt for the LLM with enhanced context."""
@@ -185,11 +188,11 @@ No explanations. Just the action."""
                 # Stuck on blank screen for too long - try aggressive actions
                 actions_to_try = ['A', 'START', 'A', 'A']  # More A presses
                 action_idx = (self.blank_screen_steps - 21) % len(actions_to_try)
-                print(f"[BLANK_SCREEN] Step {step_count}: Blank screen for {self.blank_screen_steps} steps, trying {actions_to_try[action_idx]}")
+                logger.info(f"[BLANK_SCREEN] Step {step_count}: Blank screen for {self.blank_screen_steps} steps, trying {actions_to_try[action_idx]}")
                 return actions_to_try[action_idx]
             elif self.blank_screen_steps > 10:
                 # After 10 steps on blank screen, press A more aggressively
-                print(f"[BLANK_SCREEN] Step {step_count}: Blank screen for {self.blank_screen_steps} steps, pressing A")
+                logger.info(f"[BLANK_SCREEN] Step {step_count}: Blank screen for {self.blank_screen_steps} steps, pressing A")
                 return 'A'
             elif self.blank_screen_steps > 3:
                 # After 3 steps, start pressing A to progress through transition
@@ -238,7 +241,7 @@ No explanations. Just the action."""
             screen_text, game_state, party_size
         )
         if early_action is not None:
-            print(f"[EARLY_GAME] Step {step_count}: scripted {early_action} "
+            logger.info(f"[EARLY_GAME] Step {step_count}: scripted {early_action} "
                   f"for naming/confirm screen")
             return early_action
 
@@ -564,8 +567,8 @@ No explanations. Just the action."""
             llm_duration = time.time() - llm_start_time if 'llm_start_time' in locals() else 0.0
             if self.metrics:
                 self.metrics.llm.record_call(llm_duration, error=True)
-            print(f"Warning: LLM call failed: {e}")
-            print("Using fallback action based on game state")
+            logger.warning(f"LLM call failed: {e}")
+            logger.warning("Using fallback action based on game state")
             
             # Fallback to strategy or simple heuristics
             if self.strategy:
@@ -605,7 +608,7 @@ No explanations. Just the action."""
         # This catches any B that might have slipped through from LLM
         if self.new_game_started and self.character_creation_steps < 50:
             if response_clean == "B" or response_clean.startswith("B"):
-                print(f"[CHARACTER_CREATION] Blocked B press from LLM, using A instead (step {step_count})")
+                logger.info(f"[CHARACTER_CREATION] Blocked B press from LLM, using A instead (step {step_count})")
                 response_clean = "A"
         
         # Direct match for common actions
@@ -616,7 +619,7 @@ No explanations. Just the action."""
             if button in response_clean:
                 # CRITICAL: Block B during character creation even if found in response
                 if button == "B" and self.new_game_started and self.character_creation_steps < 50:
-                    print(f"[CHARACTER_CREATION] Blocked B button, using A instead (step {step_count})")
+                    logger.info(f"[CHARACTER_CREATION] Blocked B button, using A instead (step {step_count})")
                     action = "A"
                     break
                 # Extract the button

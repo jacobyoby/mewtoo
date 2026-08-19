@@ -1,10 +1,13 @@
 """LLM Provider abstraction for Mewtwo."""
+import logging
 import threading
 import time
 from abc import ABC, abstractmethod
 
 import anthropic
 import ollama
+
+logger = logging.getLogger(__name__)
 
 
 class LLMProvider(ABC):
@@ -46,15 +49,15 @@ class OllamaProvider(LLMProvider):
                 
                 if matching_models:
                     suggested = matching_models[0]
-                    print(f"Warning: Model '{model}' not found in Ollama.")
-                    print(f"Available models: {', '.join(available_models)}")
-                    print(f"Using '{suggested}' instead.")
+                    logger.warning(f"Model '{model}' not found in Ollama.")
+                    logger.warning(f"Available models: {', '.join(available_models)}")
+                    logger.warning(f"Using '{suggested}' instead.")
                     self.model = suggested
                 elif available_models:
                     suggested = available_models[0]
-                    print(f"Warning: Model '{model}' not found in Ollama.")
-                    print(f"Available models: {', '.join(available_models)}")
-                    print(f"Using '{suggested}' instead.")
+                    logger.warning(f"Model '{model}' not found in Ollama.")
+                    logger.warning(f"Available models: {', '.join(available_models)}")
+                    logger.warning(f"Using '{suggested}' instead.")
                     self.model = suggested
                 else:
                     raise ValueError(
@@ -65,7 +68,7 @@ class OllamaProvider(LLMProvider):
             # If we can't check, warn but continue (might work anyway)
             if isinstance(e, ValueError):
                 raise
-            print(f"Warning: Could not verify model availability: {e}")
+            logger.warning(f"Could not verify model availability: {e}")
     
     def _call_with_timeout(self, func, timeout=30):
         """Call a function with timeout protection."""

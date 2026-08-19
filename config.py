@@ -1,9 +1,12 @@
 """Configuration helper for Mewtwo."""
+import logging
 import os
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -31,7 +34,7 @@ class Config:
                 with open(self.config_path, encoding='utf-8') as f:
                     self.config = yaml.safe_load(f) or {}
             except Exception as e:
-                print(f"Warning: Could not load config file: {e}")
+                logger.warning(f"Could not load config file: {e}")
                 self.config = {}
         else:
             # Use defaults if config file doesn't exist
@@ -123,7 +126,7 @@ class Config:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
         except Exception as e:
-            print(f"Warning: Could not save config file: {e}")
+            logger.warning(f"Could not save config file: {e}")
     
     def get_agent_config(self) -> dict[str, Any]:
         """Get agent configuration."""
