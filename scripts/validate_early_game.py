@@ -475,7 +475,29 @@ def run_validation_test(rom_path: str, num_runs: int = 10, max_steps: int = 500,
                 default_model = llm_config.get("claude_model", "claude-3-5-sonnet-20241022")
                 llm = ClaudeProvider(api_key=api_key, model=default_model, metrics=metrics)
             
-            agent = PokemonAgent(llm, game_state, metrics=metrics)
+            # Two-tier brain: same planner wiring as main.py, so validation
+            # measures the agent as actually shipped
+            planner = None
+            if config.get("planner.enabled", True):
+                try:
+                    from planner import PlannerAgent
+                    planner_provider = OllamaProvider(
+                        model=config.get("planner.model", "qwen3:8b"),
+                        metrics=metrics,
+                        think=config.get("planner.think", False),
+                        timeout=config.get("planner.timeout", 60),
+                    )
+                    planner = PlannerAgent(
+                        planner_provider,
+                        interval=config.get("planner.interval", 25),
+                        min_gap=config.get("planner.min_gap", 10),
+                        max_tokens=config.get("planner.max_tokens", 200),
+                        metrics=metrics,
+                    )
+                except Exception as e:
+                    print(f"(planner disabled: {e}) ", end='', flush=True)
+
+            agent = PokemonAgent(llm, game_state, metrics=metrics, planner=planner)
             
             # Track screenshots at key points
             key_screenshots = {

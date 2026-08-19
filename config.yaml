@@ -34,7 +34,7 @@ profiles:
 # Agent Configuration
 agent:
   # Maximum action history to keep (reduces prompt size)
-  max_history: 5
+  max_history: 30
   
   # Enable action caching (reduces LLM calls)
   use_cache: true

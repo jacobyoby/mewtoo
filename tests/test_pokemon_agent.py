@@ -201,3 +201,65 @@ class TestPokemonAgent:
         result = agent.step()
         assert 'stuck_count' in result
 
+
+
+class TestMenuEscapePolicy:
+    """Lingering START menus get closed with B (post-creation only)."""
+
+    def _agent(self, mock_llm_provider, mock_pyboy, game_state_val="menu",
+               screen_text="", party=None):
+        from unittest.mock import Mock
+
+        from game_state import GameState
+        from pokemon_agent import PokemonAgent
+        gs = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, gs)
+        gs.get_game_info = Mock(return_value={
+            "screen_text": screen_text,
+            "frame_count": 100,
+            "game_state": game_state_val,
+            "party": party or [{"species": 1, "level": 6}],
+            "player_position": (5, 5),
+        })
+        return agent
+
+    def test_presses_b_after_three_menu_steps(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        # Simulate being past character creation
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 200  # true step counter: well past early game
+        actions = [agent.get_action() for _ in range(4)]
+        assert "B" in actions[2:]
+
+    def test_no_b_during_character_creation(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy, party=[])
+        agent.new_game_started = True
+        agent.character_creation_steps = 10  # inside the creation window
+        actions = [agent.get_action() for _ in range(5)]
+        assert "B" not in actions
+
+    def test_no_b_on_yes_no_menu(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy,
+                            screen_text="Do you want to switch? YES NO")
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 200
+        actions = [agent.get_action() for _ in range(5)]
+        assert "B" not in actions
+
+    def test_counter_resets_outside_menu(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 200
+        agent.get_action()
+        agent.get_action()
+        # Leave the menu: counter must reset
+        agent.game_state.get_game_info = Mock(return_value={
+            "screen_text": "", "frame_count": 101, "game_state": "overworld",
+            "party": [{"species": 1, "level": 6}], "player_position": (5, 5),
+        })
+        agent.get_action()
+        assert agent._menu_steps == 0

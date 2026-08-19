@@ -98,6 +98,7 @@ No explanations. Just the action."""
         # Same-state tracking (used by several policies)
         self._last_state_key: str | None = None
         self._same_state_count = 0
+        self._menu_steps = 0  # Consecutive steps observed in a menu
 
         # Movement validation tracking
         self.movement_failures = {'UP': 0, 'DOWN': 0, 'LEFT': 0, 'RIGHT': 0}
@@ -146,7 +147,7 @@ No explanations. Just the action."""
         """Build optimized prompt for the LLM with enhanced context."""
         game_info = self.game_state.get_game_info()
         screen_text = game_info['screen_text'] or ""
-        step_count = len(self.action_history)
+        step_count = self.step_count
         recent_actions = self.action_history[-3:] if self.action_history else []
         game_state = game_info.get('game_state', 'unknown')
         
@@ -217,6 +218,7 @@ No explanations. Just the action."""
             self._early_game_policy,
             self._loading_policy,
             self._a_spam_policy,
+            self._menu_escape_policy,
             self._first_action_policy,
             self._diversity_policy,
             self._same_state_policy,
@@ -237,11 +239,19 @@ No explanations. Just the action."""
             game_info=game_info,
             screen_text=game_info['screen_text'] or "",
             game_state=game_info.get('game_state', 'unknown'),
-            step_count=len(self.action_history),
+            step_count=self.step_count,
         )
 
     def _in_creation_window(self) -> bool:
-        """True while B presses must be blocked (they cancel the new game)."""
+        """True while B presses must be blocked (they cancel the new game).
+
+        Closed for good once the starter is in the party -- without that
+        latch, the creation-steps counter resets to 0 when naming text
+        disappears and `0 < 50` re-opens the block for the rest of the run
+        (the reason agents camped in the START menu: B was never allowed).
+        """
+        if self.early_game_handler.is_done:
+            return False
         return self.new_game_started and self.character_creation_steps < 50
 
     def _cache_action(self, obs: "Observation", action: str) -> str:
@@ -400,9 +410,37 @@ No explanations. Just the action."""
         )
         return "B"
 
+    def _menu_escape_policy(self, obs: "Observation") -> str | None:
+        """Close a lingering START menu with B.
+
+        Live validation runs repeatedly ended with the agent parked in the
+        START menu: it opens the menu in the overworld and then dithers
+        (800-step runs finishing in state 'start_menu'). No early-game goal
+        needs that menu, so after a few consecutive menu observations press
+        B to close it. Guards:
+        - never during character creation (B cancels the new game; the
+          naming menu is also handled earlier in the chain by the scripted
+          early-game policy)
+        - never on YES/NO choice menus (B would pick NO implicitly)
+        """
+        if obs.game_state != 'menu':
+            self._menu_steps = 0
+            return None
+        self._menu_steps += 1
+
+        if self._in_creation_window() or obs.is_character_creation:
+            return None
+        if "YES" in obs.screen_text.upper():
+            return None
+        if self._menu_steps >= 3:
+            logger.info(f"[MENU_ESCAPE] Step {obs.step_count}: in menu for "
+                        f"{self._menu_steps} steps, pressing B to close")
+            return "B"
+        return None
+
     def _first_action_policy(self, obs: "Observation") -> str | None:
         """Cheap heuristics for the very first action (avoids an LLM call)."""
-        if obs.step_count != 0:
+        if obs.step_count != 0 or self.action_history:
             return None
         # Use strategy suggestion if available
         if self.strategy:
