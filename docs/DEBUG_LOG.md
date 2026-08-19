@@ -27,3 +27,4 @@ not a decision gap.
 | 9 | A/B alternation vs invisible menu | 0xCC26 "MENU_TYPE" is a stale menu cursor index — read 2 ("pokemon_menu") for all 800 steps of overworld walking | classify dialog/menu by pixels (detect_text_box) |
 | 10 | 330 dialog steps parked at one tile | facing the bedroom TV: A re-opens its text box the instant it closes, so "dialog -> A" loops forever | dialog-loop breaker: 25 same-tile dialog steps -> B, then step away |
 | 11 | Every bedroom step logged "dialog" with no text box on screen | the Oak-cutscene fix keyed on OCR text length > 10; the bedroom wallpaper OCRs as ~40 chars of garbage every frame | dialog = detect_text_box() pixels only |
+| 12 | Still "dialog" everywhere after #11 | the "ALWAYS validate overworld" block re-added dialog via detect_dialog_box_visually(), which reads the wallpaper as a text box | all 8 classification call sites -> detect_text_box() |

@@ -442,10 +442,10 @@ class GameState:
                         blank_info = self.detect_blank_screen(screen_image)
                         if blank_info['is_blank']:
                             game_state = "loading"  # Blank screen - overworld invalid
-                        elif self.detect_dialog_box_visually():
+                        elif self.detect_text_box():
                             game_state = "dialog"
                     elif game_state == "unknown" and len(screen_text) > 0:
-                        if self.detect_dialog_box_visually():
+                        if self.detect_text_box():
                             game_state = "dialog"
                         # Validate screen content before accepting overworld
                         screen_image = self.get_screen_image()
@@ -453,10 +453,10 @@ class GameState:
                         if blank_info['is_blank']:
                             # Screen is blank - overworld state is invalid
                             game_state = "loading"
-                        elif self.detect_dialog_box_visually():
+                        elif self.detect_text_box():
                             game_state = "dialog"
                     elif game_state == "unknown" and len(screen_text) > 0:
-                        if self.detect_dialog_box_visually():
+                        if self.detect_text_box():
                             game_state = "dialog"
             
             # ALWAYS validate overworld state against screen content
@@ -480,7 +480,7 @@ class GameState:
                 # ALWAYS check for visual dialogue boxes if we have screen text
                 # Memory reading might miss text boxes, so visual detection is important
                 elif len(screen_text) > 0:
-                    if self.detect_dialog_box_visually():
+                    if self.detect_text_box():
                         game_state = "dialog"
             
             # Get map name
@@ -520,7 +520,7 @@ class GameState:
                 game_state = "battle"
             elif len(screen_text) > 3:  # Lowered threshold - even short garbled text might be dialogue
                 # Check visual detection first for dialogue boxes
-                if self.detect_dialog_box_visually():
+                if self.detect_text_box():
                     game_state = "dialog"
                 else:
                     # If no visual box but text exists, could be overworld text or dialogue
@@ -553,10 +553,10 @@ class GameState:
                 if blank_info['is_blank']:
                     # Screen is blank - overworld state is invalid
                     game_state = "loading"  # Default to loading for blank screens
-                elif self.detect_dialog_box_visually():
+                elif self.detect_text_box():
                     game_state = "dialog"
             elif game_state == "unknown":
-                if self.detect_dialog_box_visually():
+                if self.detect_text_box():
                     game_state = "dialog"
             
             return {
