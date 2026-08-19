@@ -99,6 +99,7 @@ No explanations. Just the action."""
         self._last_state_key: str | None = None
         self._same_state_count = 0
         self._menu_steps = 0  # Consecutive steps observed in a menu
+        self._creation_over = False  # Latched on first real overworld sighting
 
         # Movement validation tracking
         self.movement_failures = {'UP': 0, 'DOWN': 0, 'LEFT': 0, 'RIGHT': 0}
@@ -250,7 +251,7 @@ No explanations. Just the action."""
         disappears and `0 < 50` re-opens the block for the rest of the run
         (the reason agents camped in the START menu: B was never allowed).
         """
-        if self.early_game_handler.is_done:
+        if self.early_game_handler.is_done or self._creation_over:
             return False
         return self.new_game_started and self.character_creation_steps < 50
 
@@ -318,6 +319,14 @@ No explanations. Just the action."""
             self.character_creation_steps += 1
         elif self.character_creation_steps > 0:
             self.character_creation_steps = 0
+
+        # Once the player is in the overworld on a known map, the naming
+        # sequence is permanently behind us -- close the B-block for good
+        # (it cannot re-open; `0 < 50` used to re-arm it forever)
+        if (not self._creation_over and self.new_game_started
+                and obs.game_state == 'overworld'
+                and (obs.game_info.get('current_map') or {}).get('map_id') is not None):
+            self._creation_over = True
         return None
 
     def _early_game_policy(self, obs: "Observation") -> str | None:
@@ -423,7 +432,7 @@ No explanations. Just the action."""
           early-game policy)
         - never on YES/NO choice menus (B would pick NO implicitly)
         """
-        if obs.game_state != 'menu':
+        if 'menu' not in obs.game_state:
             self._menu_steps = 0
             return None
         self._menu_steps += 1
