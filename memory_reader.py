@@ -46,7 +46,11 @@ class MemoryAddresses:
     INVENTORY_MAX = 20  # Maximum number of inventory slots
     
     # Menu state
-    MENU_TYPE = 0xCC26  # Current menu type
+    # WARNING: not a menu-type field. Observed holding a stale cursor index
+    # (value 2) for 800+ steps of plain overworld walking, which made the
+    # agent believe a Pokemon menu was permanently open. Classify menus and
+    # dialog from pixels (GameState.detect_text_box) instead.
+    MENU_TYPE = 0xCC26  # Menu cursor index (persists after menus close)
     MENU_STATE = 0xCC28  # Menu state/cursor position
     
     # Battle state

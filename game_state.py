@@ -373,9 +373,12 @@ class GameState:
             
             if battle_info.get("in_battle"):
                 game_state = "battle"
-            elif menu_info.get("menu_name") != "none":
-                game_state = menu_info.get("menu_name", "menu")
-            elif menu_info.get("text_box_open"):
+            elif self.detect_text_box():
+                # Pixels, not memory: 0xCC26 ("MENU_TYPE") is a menu cursor
+                # index that keeps its last value after a menu closes -- it
+                # read 2 ("pokemon_menu") for 800 straight steps while the
+                # player walked around a bedroom. Only the battle flag and
+                # position/map/party reads are trustworthy here.
                 game_state = "dialog"
             else:
                 # Check if we're in overworld (has valid position)
