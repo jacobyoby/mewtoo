@@ -273,3 +273,12 @@ def setup_tesseract():
                 pytesseract.pytesseract.tesseract_cmd = path
                 return
 
+    # macOS/Linux: Homebrew and common install locations are frequently not
+    # on the invoking process's PATH — the agent then runs fully text-blind
+    # while pytesseract raises TesseractNotFoundError on every OCR call
+    for path in ("/opt/homebrew/bin/tesseract", "/usr/local/bin/tesseract",
+                 "/usr/bin/tesseract"):
+        if Path(path).exists():
+            pytesseract.pytesseract.tesseract_cmd = path
+            return
+
