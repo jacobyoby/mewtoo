@@ -131,3 +131,26 @@ then interact. That is the next thing to encode.
 Input timing note worth keeping: dialog advance needs hold=8 with
 settle>=30. At settle=18 presses are dropped and long cutscenes appear to
 hang.
+
+## Where the starter stands (end of 2026-08-19 session)
+
+The agent reaches Oak's Lab autonomously; the ball grab is unsolved.
+Tried and rejected this session:
+- approach from each side / each facing at (5,3)
+- pure movement with no A presses (script still pulls the player back)
+- 14 randomized 45-press sequences from the post-cutscene state
+
+Every path ends the same way: the player is returned to (5, 3) with
+Oak's "which POKEMON do you want?" prompt re-opened. Something in that
+script is consuming input in a way the probes have not modelled.
+
+Save states available for the next session:
+- roms/pokemon_red.gb.state  bedroom, post-naming
+- roms/pallet_town.state     outside, in Pallet Town
+- roms/lab_free.state        mid Oak cutscene
+
+Next approach worth trying: instrument WHY input is ignored — log
+wJoyIgnore / the script-state bytes each press, instead of guessing button
+sequences. Or have a human take the starter once (scripts/play_manual.py
+auto-saves to roms/has_starter.state the moment party size changes) and
+let the agent resume from there.
