@@ -224,6 +224,7 @@ No explanations. Just the action."""
             self._a_spam_policy,
             self._menu_escape_policy,
             self._dialog_loop_policy,
+            self._route_policy,
             self._first_action_policy,
             self._diversity_policy,
             self._same_state_policy,
@@ -510,6 +511,33 @@ No explanations. Just the action."""
         logger.info(f"[DIALOG_LOOP] Step {obs.step_count}: stepping {escape} "
                     f"away from the re-triggering tile")
         return escape
+
+    def _route_policy(self, obs: "Observation") -> str | None:
+        """Follow the encoded walkthrough route on known maps.
+
+        The strategy's direction used to be one suggestion among many,
+        competing with random exploration and the LLM -- so runs still
+        wandered into Oak's Lab and stalled. On a known map, with a live
+        goal and nothing blocking, the route wins outright. It yields when
+        the agent is genuinely stuck (so the stuck breakers can work) or
+        when the route direction is a known wall.
+        """
+        if not self.strategy or obs.game_state != 'overworld':
+            return None
+        if self.stuck_count >= 5:
+            return None  # let the stuck breakers take over
+        map_id = (obs.game_info.get('current_map') or {}).get('map_id')
+        if map_id is None:
+            return None
+        goal = self.strategy.get_current_goal()
+        if goal is None:
+            return None
+        action = self.strategy.suggest_action_for_goal(
+            goal, obs.game_state, self._memory_data(obs.game_info)
+        )
+        if not action or action in self.blocked_directions:
+            return None
+        return action
 
     def _first_action_policy(self, obs: "Observation") -> str | None:
         """Cheap heuristics for the very first action (avoids an LLM call)."""

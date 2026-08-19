@@ -55,3 +55,46 @@ def test_visited_maps_tracked_from_memory():
     s = AgentStrategy()
     s.update_phase("overworld", {"current_map": {"map_id": 0x0B}, "party": []})
     assert 0x0B in s.visited_maps
+
+
+class TestRoutePolicyWins:
+    """The encoded route beats exploration/LLM on known maps."""
+
+    def _agent(self, mock_llm_provider, mock_pyboy, map_id, pos):
+        from unittest.mock import Mock
+
+        from game_state import GameState
+        from pokemon_agent import PokemonAgent
+        gs = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, gs)
+        gs.get_game_info = Mock(return_value={
+            "screen_text": "", "frame_count": 100, "game_state": "overworld",
+            "party": [], "player_position": pos,
+            "current_map": {"map_id": map_id, "map_name": "test"},
+        })
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 300
+        # Real runs mark this on the first goal check; without it the
+        # higher-priority start_game goal answers instead of get_starter
+        agent.strategy.mark_goal_complete("start_game")
+        return agent
+
+    def test_pallet_town_goes_north(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy, 0x00, (10, 10))
+        assert agent.get_action() == "UP"
+
+    def test_lab_before_cutscene_exits(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy, 0x28, (5, 3))
+        assert agent.get_action() == "DOWN"
+
+    def test_yields_when_stuck(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy, 0x00, (10, 10))
+        agent.stuck_count = 9
+        # Route steps aside so stuck-breaking logic can run
+        assert agent._route_policy(agent._observe()) is None
+
+    def test_yields_when_route_direction_is_a_known_wall(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy, 0x00, (10, 10))
+        agent.blocked_directions.add("UP")
+        assert agent._route_policy(agent._observe()) is None
