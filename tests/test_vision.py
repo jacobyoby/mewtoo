@@ -102,3 +102,42 @@ class TestAgentIntegration:
         agent = self._agent(mock_llm_provider, mock_pyboy, None)
         agent.stuck_count = 8
         assert agent.get_action() is not None
+
+
+class TestVisionOnForcedExploration:
+    """step() short-circuits to random movement when stuck; vision must run there."""
+
+    def _agent(self, mock_llm_provider, mock_pyboy, vision):
+        from game_state import GameState
+        from pokemon_agent import PokemonAgent
+        gs = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, gs, vision=vision)
+        gs.get_game_info = Mock(return_value={
+            "screen_text": "", "frame_count": 100, "game_state": "overworld",
+            "party": [], "player_position": (10, 1),
+            "current_map": {"map_id": 0x00, "map_name": "Pallet Town"},
+        })
+        gs.execute_action = Mock(return_value=True)
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 300
+        agent.stuck_count = 8  # forced-exploration territory
+        return agent
+
+    def test_vision_used_instead_of_random_movement(self, mock_llm_provider, mock_pyboy):
+        v = advisor("RIGHT")
+        agent = self._agent(mock_llm_provider, mock_pyboy, v)
+        result = agent.step()
+        assert v.client.chat.call_count == 1
+        assert result["action"] == "RIGHT"
+
+    def test_falls_back_to_random_when_vision_declines(self, mock_llm_provider, mock_pyboy):
+        v = advisor("no idea")
+        agent = self._agent(mock_llm_provider, mock_pyboy, v)
+        result = agent.step()
+        assert result["action"] in ("UP", "DOWN", "LEFT", "RIGHT")
+
+    def test_no_vision_still_explores(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy, None)
+        result = agent.step()
+        assert result["action"] in ("UP", "DOWN", "LEFT", "RIGHT")

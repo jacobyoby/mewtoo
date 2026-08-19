@@ -948,14 +948,28 @@ No explanations. Just the action."""
                         'pre_game_state': pre_game_state
                     }
                 )
-            movement_actions = ['UP', 'DOWN', 'LEFT', 'RIGHT']
-            # Exclude blocked directions
-            available_actions = [a for a in movement_actions if a not in self.blocked_directions]
-            if available_actions:
-                action = random.choice(available_actions)
-            else:
-                # All directions blocked, try any direction
-                action = random.choice(movement_actions)
+            # Ask the vision model which way is open before falling back to
+            # random movement. This branch is exactly the situation vision
+            # exists for -- and because step() short-circuits here without
+            # calling get_action(), the policy-chain vision hook was never
+            # reachable at all.
+            action = None
+            if self.vision and self.vision.is_ready(self.step_count):
+                seen = self.vision.suggest_direction(
+                    self.game_state.get_screen_image(), self.step_count
+                )
+                if seen and seen not in self.blocked_directions:
+                    action = seen
+
+            if action is None:
+                movement_actions = ['UP', 'DOWN', 'LEFT', 'RIGHT']
+                # Exclude blocked directions
+                available_actions = [a for a in movement_actions if a not in self.blocked_directions]
+                if available_actions:
+                    action = random.choice(available_actions)
+                else:
+                    # All directions blocked, try any direction
+                    action = random.choice(movement_actions)
         # Get action from LLM if not suggested by strategy
         elif not action:
             action = self.get_action()
