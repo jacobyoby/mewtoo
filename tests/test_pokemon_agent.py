@@ -310,3 +310,47 @@ class TestPhantomMenu:
         })
         agent.get_action()
         assert not agent._phantom_menu
+
+
+class TestDialogLoop:
+    """Scenery dialog (TV/PC/sign) that re-triggers gets escaped."""
+
+    def _agent(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+
+        from game_state import GameState
+        from pokemon_agent import PokemonAgent
+        gs = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, gs)
+        gs.get_game_info = Mock(return_value={
+            "screen_text": "AAAAAA is playing the SNES!",
+            "frame_count": 100,
+            "game_state": "dialog",
+            "party": [{"species": 1, "level": 6}],
+            "player_position": (3, 6),
+            "current_map": {"map_id": 0x26, "map_name": "Red's House 2F"},
+        })
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 300
+        return agent
+
+    def test_escapes_after_long_same_tile_dialog(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        actions = [agent.get_action() for _ in range(30)]
+        assert actions[:20] == ["A"] * 20        # normal dialog handling first
+        assert "B" in actions[25:]                # then closes the box
+        assert any(a in ("UP", "DOWN", "LEFT", "RIGHT") for a in actions[25:])
+
+    def test_counter_resets_when_position_changes(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        for _ in range(20):
+            agent.get_action()
+        agent.game_state.get_game_info = Mock(return_value={
+            "screen_text": "text", "frame_count": 101, "game_state": "dialog",
+            "party": [{"species": 1, "level": 6}], "player_position": (4, 6),
+            "current_map": {"map_id": 0x26, "map_name": "Red's House 2F"},
+        })
+        agent.get_action()
+        assert agent._dialog_loop_steps == 1

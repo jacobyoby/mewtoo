@@ -101,6 +101,8 @@ No explanations. Just the action."""
         self._menu_steps = 0  # Consecutive steps observed in a menu
         self._creation_over = False  # Latched on first real overworld sighting
         self._phantom_menu = False  # Menu state that B presses cannot close
+        self._dialog_loop_steps = 0  # Consecutive dialog steps at one tile
+        self._dialog_loop_pos = None
 
         # Movement validation tracking
         self.movement_failures = {'UP': 0, 'DOWN': 0, 'LEFT': 0, 'RIGHT': 0}
@@ -221,6 +223,7 @@ No explanations. Just the action."""
             self._loading_policy,
             self._a_spam_policy,
             self._menu_escape_policy,
+            self._dialog_loop_policy,
             self._first_action_policy,
             self._diversity_policy,
             self._same_state_policy,
@@ -472,6 +475,41 @@ No explanations. Just the action."""
                         f"{self._menu_steps} steps, pressing B to close")
             return "B"
         return None
+
+    def _dialog_loop_policy(self, obs: "Observation") -> str | None:
+        """Break out of re-triggering scenery dialog (TV, PC, sign).
+
+        Pressing A while facing an interactable re-opens its text box the
+        instant the last one closes, so "dialog -> press A" loops forever
+        without the player ever moving. Observed live: 330+ consecutive
+        dialog steps parked at one tile in front of the bedroom TV. After a
+        long same-position dialog run, close the box and step away.
+        """
+        pos = tuple(obs.game_info.get('player_position') or ())
+        if obs.game_state != 'dialog':
+            self._dialog_loop_steps = 0
+            self._dialog_loop_pos = None
+            return None
+
+        if pos and pos == self._dialog_loop_pos:
+            self._dialog_loop_steps += 1
+        else:
+            self._dialog_loop_pos = pos
+            self._dialog_loop_steps = 1
+
+        if self._dialog_loop_steps < 25:
+            return None
+
+        # Alternate: close the box, then walk off the tile that triggers it
+        phase = (self._dialog_loop_steps - 25) % 2
+        if phase == 0:
+            logger.info(f"[DIALOG_LOOP] Step {obs.step_count}: {self._dialog_loop_steps} "
+                        f"dialog steps at {pos} -- closing box to walk away")
+            return "B"
+        escape = random.choice(["DOWN", "LEFT", "RIGHT", "UP"])
+        logger.info(f"[DIALOG_LOOP] Step {obs.step_count}: stepping {escape} "
+                    f"away from the re-triggering tile")
+        return escape
 
     def _first_action_policy(self, obs: "Observation") -> str | None:
         """Cheap heuristics for the very first action (avoids an LLM call)."""

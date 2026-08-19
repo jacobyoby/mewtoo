@@ -23,3 +23,6 @@ Diagnostic pattern that worked every time: pull the newest
 logs/screenshots/stuck_*.png and compare what the screen SHOWS against
 what the JSON log SAYS the state was. Every bug was a perception gap,
 not a decision gap.
+
+| 9 | A/B alternation vs invisible menu | 0xCC26 "MENU_TYPE" is a stale menu cursor index — read 2 ("pokemon_menu") for all 800 steps of overworld walking | classify dialog/menu by pixels (detect_text_box) |
+| 10 | 330 dialog steps parked at one tile | facing the bedroom TV: A re-opens its text box the instant it closes, so "dialog -> A" loops forever | dialog-loop breaker: 25 same-tile dialog steps -> B, then step away |
