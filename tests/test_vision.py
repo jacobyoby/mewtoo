@@ -141,3 +141,33 @@ class TestVisionOnForcedExploration:
         agent = self._agent(mock_llm_provider, mock_pyboy, None)
         result = agent.step()
         assert result["action"] in ("UP", "DOWN", "LEFT", "RIGHT")
+
+
+class TestConstantAnswerGuard:
+    """A VLM that answers the same direction every time is defaulting, not looking."""
+
+    def test_retires_itself_after_repeated_identical_answers(self):
+        v = advisor("RIGHT")
+        v.cooldown_steps = 0
+        results = [v.suggest_direction(frame(), step_count=i) for i in range(8)]
+        assert results[0] == "RIGHT"
+        assert v.disabled is True
+        assert results[-1] is None
+
+    def test_varied_answers_keep_vision_alive(self):
+        v = advisor()
+        v.cooldown_steps = 0
+        replies = iter(["UP", "LEFT", "UP", "RIGHT", "DOWN", "LEFT"])
+        v.client.chat = Mock(side_effect=lambda **kw: {"message": {"content": next(replies)}})
+        for i in range(6):
+            v.suggest_direction(frame(), step_count=i)
+        assert v.disabled is False
+
+    def test_disabled_advisor_stops_calling_the_model(self):
+        v = advisor("DOWN")
+        v.cooldown_steps = 0
+        for i in range(8):
+            v.suggest_direction(frame(), step_count=i)
+        calls_before = v.client.chat.call_count
+        v.suggest_direction(frame(), step_count=99)
+        assert v.client.chat.call_count == calls_before

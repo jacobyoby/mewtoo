@@ -76,3 +76,23 @@ go!'" — it read the actual text. ~7.6s per call, far too slow for
 per-step use, so VisionAdvisor runs only on a genuine stall
 (stuck_count >= 6) with a 12-step cooldown, and answers one narrow
 question: which direction is open. Failures are non-fatal (returns None).
+
+## Vision evaluated (2026-08-19)
+
+Measured, not assumed:
+- gemma3:4b **does** read these frames — it transcribed Oak's dialog from
+  a screenshot, and scene descriptions differ correctly per frame
+  ("storefront with shelves" vs "small town with paths, fences").
+- It **cannot** do 4-way spatial navigation. Asked which direction is
+  open, it returns a constant regardless of the frame: "RIGHT" for every
+  screen under the one-word prompt, "DOWN" for every screen under a
+  describe-then-decide prompt.
+
+So visual navigation is a capability limit of a 4B model at 160x144, not
+a prompting problem. The advisor now retires itself after 4 identical
+answers rather than dragging the agent one direction into a wall.
+
+Vision remains valuable for what it demonstrably does well (reading text
+and identifying screen contents). For the Pallet Town exit specifically,
+the ROM map-connection data (option 2 in the earlier blocker note) is the
+approach that can actually settle it.

@@ -57,6 +57,8 @@ class VisionAdvisor:
         self.client = ollama.Client()
         self.last_call_step: int | None = None
         self.last_direction: str | None = None
+        self._repeat_count = 0
+        self.disabled = False
 
     def _encode(self, screen_image: np.ndarray) -> str:
         img = Image.fromarray(np.asarray(screen_image)[:, :, :3].astype("uint8"))
@@ -84,13 +86,21 @@ class VisionAdvisor:
                 return d
         return None
 
+    # A small VLM that answers the same direction every time is not looking,
+    # it is defaulting. Measured with gemma3:4b: scene *descriptions* differ
+    # correctly per frame, but the 4-way navigation answer collapses to a
+    # constant ("RIGHT" for every frame under one prompt, "DOWN" under
+    # another). Following a constant would drag the agent into a wall
+    # forever, so the advisor retires itself when it repeats.
+    MAX_IDENTICAL_ANSWERS = 4
+
     def suggest_direction(self, screen_image: np.ndarray, step_count: int) -> str | None:
         """Ask which way is open. Returns a direction, or None on any failure.
 
         Never raises: vision is an enhancement, and a failed look must not
         take down a run.
         """
-        if screen_image is None or not self.is_ready(step_count):
+        if self.disabled or screen_image is None or not self.is_ready(step_count):
             return None
         self.last_call_step = step_count
         try:
@@ -108,9 +118,21 @@ class VisionAdvisor:
             direction = self._parse_direction(text)
             elapsed = time.time() - start
             if direction:
+                if direction == self.last_direction:
+                    self._repeat_count += 1
+                else:
+                    self._repeat_count = 0
+                self.last_direction = direction
+                if self._repeat_count >= self.MAX_IDENTICAL_ANSWERS:
+                    self.disabled = True
+                    logger.warning(
+                        f"[VISION] Step {step_count}: answered {direction} "
+                        f"{self._repeat_count + 1} times in a row -- the model is "
+                        f"defaulting rather than reading the screen; disabling "
+                        f"visual navigation for this run")
+                    return None
                 logger.info(f"[VISION] Step {step_count}: looked at the screen "
                             f"({elapsed:.1f}s) -> go {direction}")
-                self.last_direction = direction
             else:
                 logger.info(f"[VISION] Step {step_count}: no direction in reply "
                             f"({elapsed:.1f}s): {text.strip()[:60]!r}")
