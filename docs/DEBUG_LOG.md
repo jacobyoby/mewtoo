@@ -38,3 +38,9 @@ not a decision gap.
 Note: test_metrics_track_cache_operations flaked once during a live emulator
 run (passed in isolation and on re-run) — resource contention, not a defect.
 | 19 | Edge-scan swept the whole north fence (x=1,3,6..10) but never crossed to Route 1 | blocked_directions is global, not per-tile: once UP was marked blocked at one fence tile it stayed blocked at every column, so the gap column was never tried | retry the route direction every third scan step |
+| 20 | Navigation never lands on a target tile; three ticks of fence-sweeping failed | measured on the real ROM: an 18-frame directional hold commits **two** tile steps per press (x moved by 2 each time). Holds of 8-16 frames move exactly one | directional hold 18 -> 12 frames; scripts/probe_pallet_exit.py added for ground-truth probing |
+
+Probe findings (scripts/probe_pallet_exit.py, from a Pallet Town save state):
+- 0xD361 = Y, 0xD362 = X; the agent's reported (x, y) orientation is correct.
+- Walking north from columns 1-5 enters Red's House; 6-11 stay in town.
+- Coordinates only read coherently with a >=24-frame settle after release.
