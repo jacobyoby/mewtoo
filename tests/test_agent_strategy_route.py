@@ -124,3 +124,22 @@ class TestDoorExitManeuver:
         goal = next(g for g in s.goals if g.name == "get_starter")
         md = {"current_map": {"map_id": 0x00}, "player_position": (5, 6), "party": []}
         assert s.suggest_action_for_goal(goal, "overworld", md) == "UP"
+
+
+def test_step_updates_map_tracking(mock_llm_provider, mock_pyboy):
+    """Map transitions must register even when the route policy short-circuits."""
+    from unittest.mock import Mock
+
+    from game_state import GameState
+    from pokemon_agent import PokemonAgent
+
+    gs = GameState(mock_pyboy, ocr_enabled=False)
+    agent = PokemonAgent(mock_llm_provider, gs)
+    gs.get_game_info = Mock(return_value={
+        "screen_text": "", "frame_count": 100, "game_state": "overworld",
+        "party": [], "player_position": (5, 6),
+        "current_map": {"map_id": 0x0B, "map_name": "Route 1"},
+    })
+    gs.execute_action = Mock(return_value=True)
+    agent.step()
+    assert 0x0B in agent.strategy.visited_maps

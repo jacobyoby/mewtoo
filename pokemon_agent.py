@@ -830,6 +830,13 @@ No explanations. Just the action."""
         pre_text = pre_state.get('screen_text', '')
         pre_game_state = pre_state.get('game_state', 'unknown')
 
+        # Keep strategy map/phase tracking current on EVERY step. It used to
+        # run only inside get_prompt(), i.e. only when the chain fell through
+        # to the LLM -- so once the route policy started short-circuiting,
+        # map transitions went unseen and the door-exit maneuver never fired.
+        if self.strategy:
+            self.strategy.update_phase(pre_game_state, self._memory_data(pre_state))
+
         # Consult the slow-lane planner (no-op unless a plan is due)
         if self.planner:
             completed = len(self.strategy.completed_goals) if self.strategy else 0
