@@ -1,12 +1,10 @@
 """Integration tests for metrics system - loading and basic functionality."""
-import pytest
-import time
-from unittest.mock import Mock, MagicMock, patch
-from metrics import MetricsCollector
-from pokemon_agent import PokemonAgent
+from unittest.mock import Mock, patch
+
 from game_state import GameState
 from llm_provider import OllamaProvider
-from llm_optimizer import ActionCache
+from metrics import MetricsCollector
+from pokemon_agent import PokemonAgent
 
 
 class TestMetricsIntegration:

@@ -1,17 +1,17 @@
 """LLM Provider abstraction for Mewtwo."""
+import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Optional
+
 import anthropic
 import ollama
-import threading
 
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
     
     @abstractmethod
-    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 10) -> str:
+    def generate(self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10) -> str:
         """Generate a response from the LLM.
         
         Args:
@@ -104,7 +104,7 @@ class OllamaProvider(LLMProvider):
         except Exception:
             return []
     
-    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 10) -> str:
+    def generate(self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10) -> str:
         """Generate a response using Ollama.
         
         Args:
@@ -176,7 +176,7 @@ class OllamaProvider(LLMProvider):
 class ClaudeProvider(LLMProvider):
     """Anthropic Claude provider for cloud-based inference."""
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "claude-3-5-sonnet-20241022", metrics=None):
+    def __init__(self, api_key: str | None = None, model: str = "claude-3-5-sonnet-20241022", metrics=None):
         """Initialize Claude provider.
         
         Args:
@@ -189,7 +189,7 @@ class ClaudeProvider(LLMProvider):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.metrics = metrics
     
-    def generate(self, prompt: str, system_prompt: Optional[str] = None, max_tokens: int = 10) -> str:
+    def generate(self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10) -> str:
         """Generate a response using Claude.
         
         Args:
@@ -219,7 +219,7 @@ class ClaudeProvider(LLMProvider):
                 self.metrics.llm.record_call(latency, tokens=tokens)
             
             return response.content[0].text
-        except Exception as e:
+        except Exception:
             latency = time.time() - start_time
             if self.metrics:
                 self.metrics.llm.record_call(latency, error=True)

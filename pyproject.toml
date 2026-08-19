@@ -1,0 +1,65 @@
+[project]
+name = "mewtoo"
+version = "0.0.7"
+description = "LLM-driven agent that plays Pokemon Red in PyBoy"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "pyboy>=2.0.0",
+    "opencv-python>=4.8.0",
+    "pytesseract>=0.3.10",
+    "numpy>=1.24.0",
+    "pillow>=10.0.0",
+    "anthropic>=0.18.0",
+    "ollama>=0.1.0",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "ruff>=0.6.0",
+]
+
+[project.urls]
+Repository = "https://github.com/jacobyoby/mewtoo"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --strict-markers --disable-warnings"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "performance: marks tests as performance benchmarks",
+    "e2e: marks tests as end-to-end tests",
+    "stress: marks tests as stress tests",
+    "edge_case: marks tests as edge case tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Start pragmatic: correctness + import hygiene + modern-idiom upgrades.
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade (modern idioms)
+    "B",   # bugbear
+]
+ignore = [
+    "E501",  # long lines: legacy prose comments; revisit after refactor passes
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]

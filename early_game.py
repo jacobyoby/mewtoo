@@ -22,7 +22,6 @@ and issues short scripted button sequences that complete them deterministically:
 The handler disables itself permanently once the party is non-empty (starter
 obtained), so these text heuristics cannot misfire later in the game.
 """
-from typing import List, Optional, Tuple
 
 
 class EarlyGameHandler:
@@ -55,7 +54,7 @@ class EarlyGameHandler:
     _GRID_FRAGMENTS = ("ABCDEF", "GHIJKL", "MNOPQR", "STUVWX", "UVWXYZ")
 
     def __init__(self):
-        self._active_type: Optional[str] = None
+        self._active_type: str | None = None
         self._script_index = 0
         self._replays = 0
         self._done = False  # Latched once the party is non-empty
@@ -66,7 +65,7 @@ class EarlyGameHandler:
         punctuation noise doesn't break substring matching."""
         return "".join(c for c in text.upper() if c.isalpha())
 
-    def _classify(self, norm_text: str, game_state: str) -> Optional[str]:
+    def _classify(self, norm_text: str, game_state: str) -> str | None:
         """Classify the current screen from normalized OCR text."""
         if any(frag in norm_text for frag in self._GRID_FRAGMENTS):
             return self.GRID
@@ -79,7 +78,7 @@ class EarlyGameHandler:
         return None
 
     def next_action(self, screen_text: str, game_state: str,
-                    party_size: int) -> Optional[str]:
+                    party_size: int) -> str | None:
         """Return a scripted action for a recognized naming screen, or None.
 
         Args:

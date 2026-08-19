@@ -3,23 +3,23 @@
 Version: 0.0.7
 """
 import argparse
+import json
 import os
 import sys
-import json
-from pathlib import Path
-from typing import Optional
 from datetime import datetime
+from pathlib import Path
+
 from dotenv import load_dotenv
-
 from pyboy import PyBoy
-from llm_provider import OllamaProvider, ClaudeProvider, LLMProvider
+
+from config import get_config, setup_tesseract
 from game_state import GameState
-from pokemon_agent import PokemonAgent
-from config import setup_tesseract, get_config
+from llm_provider import ClaudeProvider, LLMProvider, OllamaProvider
 from metrics import MetricsCollector
+from pokemon_agent import PokemonAgent
 
 
-def create_llm_provider(provider: str, model: Optional[str] = None, config=None, metrics=None) -> LLMProvider:
+def create_llm_provider(provider: str, model: str | None = None, config=None, metrics=None) -> LLMProvider:
     """Create LLM provider based on configuration.
     
     Args:
@@ -178,7 +178,7 @@ def main():
     if args.rom == "..." or args.rom.strip() == "":
         print("Error: Invalid ROM path provided.")
         print("Please provide the actual path to your ROM file.")
-        print(f"Example: python main.py --rom \"Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb\" --model llama3.2:1b --llm-provider ollama")
+        print("Example: python main.py --rom \"Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb\" --model llama3.2:1b --llm-provider ollama")
         sys.exit(1)
     
     if not rom_path.exists():
@@ -190,7 +190,7 @@ def main():
         if current_dir.exists():
             gb_files = list(current_dir.glob("*.gb"))
             if gb_files:
-                print(f"\nFound .gb files in current directory:")
+                print("\nFound .gb files in current directory:")
                 for gb_file in gb_files:
                     print(f"  - {gb_file.name}")
         sys.exit(1)
@@ -400,7 +400,7 @@ def main():
                               f"HP {party[0].get('hp_current', 0)}/{party[0].get('hp_max', 0)}")
             
             if result.get('state_changed') is False:
-                print(f"  Warning: State unchanged - action may not have had effect")
+                print("  Warning: State unchanged - action may not have had effect")
             if result.get('stuck_count', 0) > 3:
                 print(f"  Warning: Stuck for {result['stuck_count']} steps")
             if game_info.get('screen_text'):

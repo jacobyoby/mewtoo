@@ -1,7 +1,9 @@
 """Detailed screenshot analysis."""
 import sys
-from PIL import Image
+
 import numpy as np
+from PIL import Image
+
 
 def analyze_screenshot_detailed(image_path: str):
     """Detailed analysis of screenshot."""
@@ -31,7 +33,7 @@ def analyze_screenshot_detailed(image_path: str):
         print(f"Unique colors: {unique_colors}")
         
         # Sample some pixel values
-        print(f"\nSample pixels (top-left 5x5):")
+        print("\nSample pixels (top-left 5x5):")
         for i in range(min(5, arr.shape[0])):
             row = arr[i, :5, :3]  # First 5 pixels, RGB only
             print(f"  Row {i}: {row.tolist()}")

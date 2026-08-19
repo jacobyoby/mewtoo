@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pyboy import PyBoy
+
 from memory_reader import MemoryReader, get_map_name
 
 

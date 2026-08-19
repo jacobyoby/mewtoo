@@ -1,13 +1,14 @@
 """Script for testing agent deeper into the game with extended runs."""
-import sys
 import argparse
+import sys
 from pathlib import Path
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from main import main as main_func
 import sys as sys_module
+
+from main import main as main_func
 
 
 def main():

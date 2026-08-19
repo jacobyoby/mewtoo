@@ -1,14 +1,15 @@
 """Configuration helper for Mewtwo."""
 import os
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any
+
 import yaml
 
 
 class Config:
     """Configuration manager for Mewtwo."""
     
-    def __init__(self, config_path: Optional[str] = None):
+    def __init__(self, config_path: str | None = None):
         """Initialize configuration.
         
         Args:
@@ -20,14 +21,14 @@ class Config:
             config_path = Path(config_path)
         
         self.config_path = config_path
-        self.config: Dict[str, Any] = {}
+        self.config: dict[str, Any] = {}
         self.load_config()
     
     def load_config(self):
         """Load configuration from YAML file."""
         if self.config_path.exists():
             try:
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, encoding='utf-8') as f:
                     self.config = yaml.safe_load(f) or {}
             except Exception as e:
                 print(f"Warning: Could not load config file: {e}")
@@ -36,7 +37,7 @@ class Config:
             # Use defaults if config file doesn't exist
             self.config = self._get_defaults()
     
-    def _get_defaults(self) -> Dict[str, Any]:
+    def _get_defaults(self) -> dict[str, Any]:
         """Get default configuration values."""
         return {
             "agent": {
@@ -124,35 +125,35 @@ class Config:
         except Exception as e:
             print(f"Warning: Could not save config file: {e}")
     
-    def get_agent_config(self) -> Dict[str, Any]:
+    def get_agent_config(self) -> dict[str, Any]:
         """Get agent configuration."""
         return self.config.get("agent", {})
     
-    def get_strategy_config(self) -> Dict[str, Any]:
+    def get_strategy_config(self) -> dict[str, Any]:
         """Get strategy configuration."""
         return self.config.get("strategy", {})
     
-    def get_llm_config(self) -> Dict[str, Any]:
+    def get_llm_config(self) -> dict[str, Any]:
         """Get LLM configuration."""
         return self.config.get("llm", {})
     
-    def get_ocr_config(self) -> Dict[str, Any]:
+    def get_ocr_config(self) -> dict[str, Any]:
         """Get OCR configuration."""
         return self.config.get("ocr", {})
     
-    def get_memory_config(self) -> Dict[str, Any]:
+    def get_memory_config(self) -> dict[str, Any]:
         """Get memory configuration."""
         return self.config.get("memory", {})
     
-    def get_performance_config(self) -> Dict[str, Any]:
+    def get_performance_config(self) -> dict[str, Any]:
         """Get performance configuration."""
         return self.config.get("performance", {})
     
-    def get_logging_config(self) -> Dict[str, Any]:
+    def get_logging_config(self) -> dict[str, Any]:
         """Get logging configuration."""
         return self.config.get("logging", {})
     
-    def get_game_config(self) -> Dict[str, Any]:
+    def get_game_config(self) -> dict[str, Any]:
         """Get game configuration."""
         return self.config.get("game", {})
     
@@ -164,7 +165,7 @@ class Config:
         """
         return self.config.get("active_profile", "balanced")
     
-    def get_profile(self, profile_name: Optional[str] = None) -> Dict[str, Any]:
+    def get_profile(self, profile_name: str | None = None) -> dict[str, Any]:
         """Get profile configuration.
         
         Args:
@@ -179,7 +180,7 @@ class Config:
         profiles = self.config.get("profiles", {})
         return profiles.get(profile_name, {})
     
-    def list_profiles(self) -> List[str]:
+    def list_profiles(self) -> list[str]:
         """List all available profile names.
         
         Returns:
@@ -188,7 +189,7 @@ class Config:
         profiles = self.config.get("profiles", {})
         return list(profiles.keys())
     
-    def apply_profile(self, profile_name: Optional[str] = None) -> Dict[str, Any]:
+    def apply_profile(self, profile_name: str | None = None) -> dict[str, Any]:
         """Apply profile settings, overriding defaults.
         
         Args:
@@ -230,10 +231,10 @@ class Config:
 
 
 # Global config instance
-_config_instance: Optional[Config] = None
+_config_instance: Config | None = None
 
 
-def get_config(config_path: Optional[str] = None) -> Config:
+def get_config(config_path: str | None = None) -> Config:
     """Get global configuration instance.
     
     Args:

@@ -1,7 +1,7 @@
 """Visual demonstration of Mewtwo without needing a ROM."""
-import time
 import random
-from typing import Dict, List
+import time
+
 
 class MockGameState:
     """Mock game state for demonstration."""
@@ -22,7 +22,7 @@ class MockGameState:
         ]
         self.current_scenario = 0
     
-    def get_game_info(self) -> Dict:
+    def get_game_info(self) -> dict:
         """Get mock game information."""
         self.frame_count += 1
         scenario = self.scenarios[self.current_scenario % len(self.scenarios)]

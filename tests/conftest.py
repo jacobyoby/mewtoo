@@ -1,8 +1,8 @@
 """Pytest configuration and fixtures."""
-import pytest
+from unittest.mock import Mock
+
 import numpy as np
-from unittest.mock import Mock, MagicMock
-from typing import Generator
+import pytest
 
 
 @pytest.fixture

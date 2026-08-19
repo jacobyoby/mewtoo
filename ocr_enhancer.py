@@ -1,9 +1,9 @@
 """Enhanced OCR for Game Boy screens with text region detection and character-level recognition."""
+from enum import Enum
+
 import cv2
 import numpy as np
 import pytesseract
-from typing import List, Tuple, Optional, Dict
-from enum import Enum
 
 
 class TextRegion(Enum):
@@ -36,7 +36,7 @@ class OCREnhancer:
         self.scale_factor = scale_factor
         self.last_text_regions = []
     
-    def detect_text_regions(self, image: np.ndarray) -> List[Dict]:
+    def detect_text_regions(self, image: np.ndarray) -> list[dict]:
         """Detect text regions in Game Boy screen.
         
         Args:
@@ -121,7 +121,7 @@ class OCREnhancer:
         self.last_text_regions = regions
         return regions
     
-    def extract_text_from_region(self, image: np.ndarray, region: Dict, 
+    def extract_text_from_region(self, image: np.ndarray, region: dict, 
                                   use_character_level: bool = False) -> str:
         """Extract text from a specific region.
         
@@ -176,7 +176,7 @@ class OCREnhancer:
             text = self._clean_gameboy_text(text)
             
             return text
-        except Exception as e:
+        except Exception:
             return ""
     
     def _clean_gameboy_text(self, text: str) -> str:

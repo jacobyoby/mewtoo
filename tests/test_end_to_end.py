@@ -1,9 +1,11 @@
 """End-to-end tests for complete gameplay sequences."""
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
+
+from game_state import GameState
 from metrics import MetricsCollector
 from pokemon_agent import PokemonAgent
-from game_state import GameState
 
 
 class TestEarlyGameSequence:

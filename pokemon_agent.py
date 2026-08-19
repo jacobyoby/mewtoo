@@ -2,17 +2,16 @@
 
 Version: 0.0.7
 """
-import time
 import random
-from typing import Optional, List, Dict, Tuple
-from collections import deque, Counter
-from llm_provider import LLMProvider
+import time
+from collections import Counter, deque
+
+from agent_strategy import AgentStrategy, GameEvent
+from config import get_config
+from early_game import EarlyGameHandler
 from game_state import GameState
 from llm_optimizer import ActionCache, PromptOptimizer, RepetitionDetector
-from agent_strategy import AgentStrategy, GameEvent
-from early_game import EarlyGameHandler
-from config import get_config
-from pyboy import PyBoy
+from llm_provider import LLMProvider
 from metrics import MetricsCollector
 
 
@@ -23,7 +22,7 @@ class PokemonAgent:
 No explanations. Just the action."""
 
     def __init__(self, llm_provider: LLMProvider, game_state: GameState, use_cache: bool = True,
-                 use_strategy: bool = True, goal_check_interval: int = 5, metrics: Optional[MetricsCollector] = None):
+                 use_strategy: bool = True, goal_check_interval: int = 5, metrics: MetricsCollector | None = None):
         """Initialize Pokemon Agent.
         
         Args:
@@ -41,7 +40,7 @@ No explanations. Just the action."""
         
         self.llm_provider = llm_provider
         self.game_state = game_state
-        self.action_history: List[str] = []
+        self.action_history: list[str] = []
         self.max_history = agent_config.get("max_history", 20)  # Increased to 20 for diversity checking
         self.action_cache = ActionCache(max_size=perf_config.get("cache_max_size", 100)) if use_cache else None
         self.loading_state_steps = 0  # Track consecutive steps in loading state
@@ -75,7 +74,7 @@ No explanations. Just the action."""
         self.movement_failures = {'UP': 0, 'DOWN': 0, 'LEFT': 0, 'RIGHT': 0}
         self.blocked_directions = set()
     
-    def _save_stuck_screenshot(self, step_count: int, reason: str, details: Optional[Dict] = None):
+    def _save_stuck_screenshot(self, step_count: int, reason: str, details: dict | None = None):
         """Save screenshot when agent is stuck.
         
         Args:
@@ -675,7 +674,7 @@ No explanations. Just the action."""
         
         return action
     
-    def step(self) -> Dict:
+    def step(self) -> dict:
         """Execute one step of the agent.
         
         Returns:
@@ -880,7 +879,7 @@ No explanations. Just the action."""
         # If same action appears > 60% of the time, consider it repetitive
         return most_common_count / len(recent) > 0.6
     
-    def check_action_diversity(self, window: int = 15, threshold: float = 0.6) -> Tuple[bool, Optional[str]]:
+    def check_action_diversity(self, window: int = 15, threshold: float = 0.6) -> tuple[bool, str | None]:
         """Check if action diversity is too low.
         
         Args:
@@ -901,8 +900,8 @@ No explanations. Just the action."""
             return True, action_counts.most_common(1)[0][0]
         return False, None
     
-    def validate_movement(self, action: str, pre_position: Optional[tuple], 
-                          post_position: Optional[tuple], threshold: int = 3) -> Tuple[bool, Optional[str]]:
+    def validate_movement(self, action: str, pre_position: tuple | None, 
+                          post_position: tuple | None, threshold: int = 3) -> tuple[bool, str | None]:
         """Validate that movement action actually moved the player.
         
         Args:

@@ -1,11 +1,13 @@
 """Stress tests for extended runs and edge cases."""
-import pytest
-import time
 import gc
-from unittest.mock import Mock, MagicMock
+import time
+from unittest.mock import Mock
+
+import pytest
+
+from game_state import GameState
 from metrics import MetricsCollector
 from pokemon_agent import PokemonAgent
-from game_state import GameState
 
 
 class TestExtendedRuns:
@@ -175,7 +177,7 @@ class TestResourceLimits:
     def test_cache_size_limit(self, mock_llm_provider, mock_pyboy):
         """Test: Cache should respect size limits and evict properly."""
         from unittest.mock import patch
-        from config import get_config
+
         
         metrics = MetricsCollector()
         game_state = GameState(mock_pyboy, ocr_enabled=False, metrics=metrics)
@@ -223,7 +225,7 @@ class TestResourceLimits:
     def test_action_history_limit(self, mock_llm_provider, mock_pyboy):
         """Test: Action history should respect size limits."""
         from unittest.mock import patch
-        from config import get_config
+
         
         metrics = MetricsCollector()
         game_state = GameState(mock_pyboy, ocr_enabled=False, metrics=metrics)

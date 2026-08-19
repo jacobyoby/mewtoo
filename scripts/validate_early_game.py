@@ -10,26 +10,27 @@ Target: >80% success rate for v1.0.0
 import argparse
 import json
 import sys
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 from datetime import datetime
-import cv2
+from pathlib import Path
+
 import numpy as np
 from PIL import Image
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from pokemon_agent import PokemonAgent
-from game_state import GameState
-from llm_provider import OllamaProvider, ClaudeProvider
-from config import get_config
-from metrics import MetricsCollector
-from pyboy import PyBoy
 import os
 
+from pyboy import PyBoy
 
-def check_goal_completion(log_data: Dict, goal_name: str) -> bool:
+from config import get_config
+from game_state import GameState
+from llm_provider import ClaudeProvider, OllamaProvider
+from metrics import MetricsCollector
+from pokemon_agent import PokemonAgent
+
+
+def check_goal_completion(log_data: dict, goal_name: str) -> bool:
     """Check if a goal was completed based on log data.
     
     Args:
@@ -75,7 +76,7 @@ def check_goal_completion(log_data: Dict, goal_name: str) -> bool:
     return False
 
 
-def analyze_early_game_sequence(log_file: str) -> Dict:
+def analyze_early_game_sequence(log_file: str) -> dict:
     """Analyze a log file for early game sequence completion.
     
     Args:
@@ -84,7 +85,7 @@ def analyze_early_game_sequence(log_file: str) -> Dict:
     Returns:
         Dictionary with analysis results
     """
-    with open(log_file, 'r') as f:
+    with open(log_file) as f:
         log_data = json.load(f)
     
     results = {
@@ -157,7 +158,7 @@ def analyze_early_game_sequence(log_file: str) -> Dict:
     return results
 
 
-def detect_blank_screen(screen_image: np.ndarray, white_threshold: float = 0.8, black_threshold: float = 0.8) -> Dict:
+def detect_blank_screen(screen_image: np.ndarray, white_threshold: float = 0.8, black_threshold: float = 0.8) -> dict:
     """Detect if screen is mostly blank (white or black).
     
     Args:
@@ -207,7 +208,7 @@ def detect_blank_screen(screen_image: np.ndarray, white_threshold: float = 0.8, 
     }
 
 
-def capture_representative_screenshot(game_state: GameState, num_frames: int = 5) -> Optional[np.ndarray]:
+def capture_representative_screenshot(game_state: GameState, num_frames: int = 5) -> np.ndarray | None:
     """Capture multiple frames and select the most representative one.
     
     Args:
@@ -247,7 +248,7 @@ def capture_representative_screenshot(game_state: GameState, num_frames: int = 5
         return screenshots[best_idx]
 
 
-def validate_state_matches_screen(game_state_str: str, screen_image: np.ndarray, game_info: Dict) -> Dict:
+def validate_state_matches_screen(game_state_str: str, screen_image: np.ndarray, game_info: dict) -> dict:
     """Verify that reported game state matches screen content.
     
     Args:
@@ -297,7 +298,7 @@ def validate_state_matches_screen(game_state_str: str, screen_image: np.ndarray,
     return validation
 
 
-def analyze_game_state(game_state: GameState, game_info: Dict) -> Dict:
+def analyze_game_state(game_state: GameState, game_info: dict) -> dict:
     """Analyze current game state to determine progress.
     
     Args:
@@ -359,7 +360,7 @@ def analyze_game_state(game_state: GameState, game_info: Dict) -> Dict:
 
 def save_screenshot_at_step(game_state: GameState, run_num: int, step: int, 
                            output_dir: str = "validation_screenshots", 
-                           use_representative: bool = True) -> Optional[str]:
+                           use_representative: bool = True) -> str | None:
     """Save a screenshot at a specific step, using representative frame if requested.
     
     Args:
@@ -405,7 +406,7 @@ def save_screenshot_at_step(game_state: GameState, run_num: int, step: int,
 
 def run_validation_test(rom_path: str, num_runs: int = 10, max_steps: int = 500,
                        llm_provider: str = 'ollama', headless: bool = True,
-                       extend_runs: bool = True, max_extend_steps: int = 200) -> Dict:
+                       extend_runs: bool = True, max_extend_steps: int = 200) -> dict:
     """Run multiple validation tests and calculate success rate.
     
     Args:
@@ -439,8 +440,8 @@ def run_validation_test(rom_path: str, num_runs: int = 10, max_steps: int = 500,
     step_counts = {'start_game': [], 'get_starter': [], 'reach_viridian': []}
     
     print(f"Running {num_runs} validation tests...")
-    print(f"Target: Complete early game sequence (start_game -> get_starter -> reach_viridian)")
-    print(f"Success threshold: >80% for v1.0.0")
+    print("Target: Complete early game sequence (start_game -> get_starter -> reach_viridian)")
+    print("Success threshold: >80% for v1.0.0")
     print()
     
     for run_num in range(num_runs):
@@ -692,7 +693,7 @@ def run_validation_test(rom_path: str, num_runs: int = 10, max_steps: int = 500,
     return results
 
 
-def print_validation_report(results: Dict):
+def print_validation_report(results: dict):
     """Print a formatted validation report.
     
     Args:
@@ -754,12 +755,12 @@ def print_validation_report(results: Dict):
                 
                 blank_screen = final_state.get('blank_screen', False)
                 if blank_screen:
-                    print(f"    - WARNING: Final screen is blank!")
+                    print("    - WARNING: Final screen is blank!")
                 
                 # Show key screenshots
                 key_screenshots = final_state.get('key_screenshots', {})
                 if key_screenshots:
-                    print(f"    - Key screenshots:")
+                    print("    - Key screenshots:")
                     if key_screenshots.get('start'):
                         print(f"      * Start game: {key_screenshots['start']}")
                     if key_screenshots.get('mid'):

@@ -1,12 +1,13 @@
 """Check for stuck patterns in Pokemon agent logs."""
 import json
 import sys
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
+
 
 def analyze_stuck_patterns(log_path: str):
     """Analyze log file for stuck patterns."""
-    with open(log_path, 'r', encoding='utf-8') as f:
+    with open(log_path, encoding='utf-8') as f:
         data = json.load(f)
     
     steps_log = data.get('steps_log', [])

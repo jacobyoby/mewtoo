@@ -1,8 +1,6 @@
 """LLM call optimizations for Pokemon agent."""
-from typing import Dict, List, Optional, Tuple
-from collections import Counter
 import hashlib
-import json
+from collections import Counter
 
 
 class ActionCache:
@@ -14,8 +12,8 @@ class ActionCache:
         Args:
             max_size: Maximum number of cached entries
         """
-        self.cache: Dict[str, str] = {}
-        self.access_order: List[str] = []  # Track access order for LRU
+        self.cache: dict[str, str] = {}
+        self.access_order: list[str] = []  # Track access order for LRU
         self.max_size = max_size
         self.hits = 0
         self.misses = 0
@@ -30,7 +28,7 @@ class ActionCache:
         state_str = f"{normalized_text}|{frame_count // 100}|{','.join(recent_actions[-3:])}"
         return hashlib.md5(state_str.encode()).hexdigest()
     
-    def get(self, screen_text: str, frame_count: int, recent_actions: list) -> Optional[str]:
+    def get(self, screen_text: str, frame_count: int, recent_actions: list) -> str | None:
         """Get cached action if available.
         
         Returns:
@@ -72,7 +70,7 @@ class ActionCache:
             self.access_order.remove(key)
         self.access_order.append(key)
     
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get cache statistics."""
         total = self.hits + self.misses
         hit_rate = (self.hits / total * 100) if total > 0 else 0
@@ -91,8 +89,8 @@ class PromptOptimizer:
     
     @staticmethod
     def optimize_prompt(screen_text: str, frame_count: int, step_count: int, recent_actions: list, 
-                       game_state: str = "unknown", game_state_summary: Optional[Dict] = None,
-                       recent_events: Optional[str] = None, strategy_context: Optional[Dict] = None) -> str:
+                       game_state: str = "unknown", game_state_summary: dict | None = None,
+                       recent_events: str | None = None, strategy_context: dict | None = None) -> str:
         """Create optimized, concise prompt with better context.
         
         Args:
@@ -204,7 +202,7 @@ class PromptOptimizer:
     
     @staticmethod
     def _get_context_hint(game_state: str, step_count: int, recent_actions: list, 
-                         strategy_context: Optional[Dict] = None) -> str:
+                         strategy_context: dict | None = None) -> str:
         """Get context-aware hint based on game state."""
         if game_state == "title_screen":
             return "Title screen - press START to begin new game"
@@ -231,7 +229,7 @@ class PromptOptimizer:
             return "Playing - explore and progress through the game"
     
     @staticmethod
-    def _get_action_explanations(game_state: str, strategy_context: Optional[Dict] = None, step_count: int = 0) -> str:
+    def _get_action_explanations(game_state: str, strategy_context: dict | None = None, step_count: int = 0) -> str:
         """Get explanations for available actions."""
         explanations = []
         
@@ -285,10 +283,10 @@ class RepetitionDetector:
         self.pattern_threshold = pattern_threshold
         self.last_action = None
         self.repeat_count = 0
-        self.action_history: List[str] = []
+        self.action_history: list[str] = []
         self.max_history = 10
     
-    def check(self, action: str) -> Tuple[bool, Optional[str]]:
+    def check(self, action: str) -> tuple[bool, str | None]:
         """Check if action is repeating or stuck in a pattern.
         
         Returns:
@@ -329,7 +327,7 @@ class RepetitionDetector:
         
         return False, None
     
-    def _pattern_matches(self, pattern: List[str]) -> bool:
+    def _pattern_matches(self, pattern: list[str]) -> bool:
         """Check if recent history matches a pattern."""
         if len(self.action_history) < len(pattern) * self.pattern_threshold:
             return False
@@ -346,7 +344,7 @@ class RepetitionDetector:
         
         return True
     
-    def _suggest_alternative(self, current_action: str, reason: str) -> Tuple[bool, Optional[str]]:
+    def _suggest_alternative(self, current_action: str, reason: str) -> tuple[bool, str | None]:
         """Suggest an alternative action based on current action and reason."""
         # Smart alternatives based on action type
         alternatives = {
@@ -370,7 +368,7 @@ class RepetitionDetector:
         
         return True, alt
     
-    def detect_statistical_pattern(self, window: int = 15, threshold: float = 0.6) -> Tuple[bool, Optional[str], float]:
+    def detect_statistical_pattern(self, window: int = 15, threshold: float = 0.6) -> tuple[bool, str | None, float]:
         """Detect statistical patterns (e.g., mostly UP).
         
         Args:

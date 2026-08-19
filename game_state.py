@@ -1,13 +1,14 @@
 """Game state extraction and management for Pokemon Red."""
-import cv2
-import numpy as np
-from PIL import Image
-import pytesseract
 import os
 import time
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+
+import cv2
+import numpy as np
+import pytesseract
+from PIL import Image
 from pyboy import PyBoy
+
 from memory_reader import MemoryReader, get_map_name
 from ocr_enhancer import OCREnhancer
 
@@ -82,8 +83,8 @@ class GameState:
         screen = self.pyboy.screen.image
         return np.array(screen)
     
-    def detect_blank_screen(self, image: Optional[np.ndarray] = None, 
-                           white_threshold: float = 0.8, black_threshold: float = 0.8) -> Dict:
+    def detect_blank_screen(self, image: np.ndarray | None = None, 
+                           white_threshold: float = 0.8, black_threshold: float = 0.8) -> dict:
         """Detect if screen is mostly blank (white or black).
         
         Args:
@@ -135,7 +136,7 @@ class GameState:
             'unique_colors': len(np.unique(rgb.reshape(-1, rgb.shape[-1]), axis=0)) if len(rgb.shape) == 3 else 1
         }
     
-    def save_screenshot(self, filename: Optional[str] = None, directory: str = "logs/screenshots") -> str:
+    def save_screenshot(self, filename: str | None = None, directory: str = "logs/screenshots") -> str:
         """Save a screenshot of the current screen.
         
         Args:
@@ -165,7 +166,7 @@ class GameState:
         
         return filepath
     
-    def detect_dialog_box_visually(self, image: Optional[np.ndarray] = None) -> bool:
+    def detect_dialog_box_visually(self, image: np.ndarray | None = None) -> bool:
         """Detect if a dialogue box is present visually (even if OCR fails).
         
         Args:
@@ -209,7 +210,7 @@ class GameState:
                     return True
             
             return False
-        except Exception as e:
+        except Exception:
             # If visual detection fails, return False (fallback to other methods)
             return False
     
@@ -307,7 +308,7 @@ class GameState:
             print(f"OCR error: {e}")
             return ""
     
-    def get_game_info(self) -> Dict:
+    def get_game_info(self) -> dict:
         """Extract game information from memory and OCR.
         
         Combines memory-based reading (accurate) with OCR (fallback).
@@ -330,7 +331,7 @@ class GameState:
                     memory_state = self.memory_reader.read_full_game_state()
                     self.cached_memory_state = memory_state
                     self.last_memory_check_step = current_step
-                except Exception as e:
+                except Exception:
                     # Silently fall back to OCR if memory reading fails
                     memory_state = None
             else:
@@ -586,7 +587,7 @@ class GameState:
     
     # Convenience methods for accessing memory data
     
-    def get_player_position(self) -> Tuple[int, int]:
+    def get_player_position(self) -> tuple[int, int]:
         """Get player position (X, Y coordinates).
         
         Returns:
@@ -599,7 +600,7 @@ class GameState:
         except Exception:
             return (0, 0)
     
-    def get_current_map(self) -> Dict[str, any]:
+    def get_current_map(self) -> dict[str, any]:
         """Get current map information.
         
         Returns:
@@ -615,7 +616,7 @@ class GameState:
         except Exception:
             return {"map_id": 0, "map_bank": 0, "map_name": "Unknown"}
     
-    def get_pokemon_party(self) -> List[Dict]:
+    def get_pokemon_party(self) -> list[dict]:
         """Get Pokemon party status.
         
         Returns:
@@ -628,7 +629,7 @@ class GameState:
         except Exception:
             return []
     
-    def get_health_hp(self) -> Dict[str, any]:
+    def get_health_hp(self) -> dict[str, any]:
         """Get health/HP values for party Pokemon.
         
         Returns:
@@ -655,7 +656,7 @@ class GameState:
                 "fainted_count": 0,
             }
     
-    def get_inventory(self) -> List[Dict[str, int]]:
+    def get_inventory(self) -> list[dict[str, int]]:
         """Get inventory items.
         
         Returns:
@@ -668,7 +669,7 @@ class GameState:
         except Exception:
             return []
     
-    def get_menu_state(self) -> Dict[str, any]:
+    def get_menu_state(self) -> dict[str, any]:
         """Get current menu state.
         
         Returns:
@@ -691,7 +692,7 @@ class GameState:
                 "text_box_open": False,
             }
     
-    def get_battle_state(self) -> Dict[str, any]:
+    def get_battle_state(self) -> dict[str, any]:
         """Get battle state information.
         
         Returns:

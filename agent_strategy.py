@@ -1,8 +1,7 @@
 """Goal-oriented agent strategy with state machine and exploration/exploitation balance."""
-from enum import Enum
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass, field
 from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum
 
 
 class GamePhase(Enum):
@@ -25,8 +24,8 @@ class Goal:
     priority: int  # Higher = more important
     completed: bool = False
     progress: float = 0.0  # 0.0 to 1.0
-    required_actions: List[str] = field(default_factory=list)
-    completion_condition: Optional[object] = None  # callable type
+    required_actions: list[str] = field(default_factory=list)
+    completion_condition: object | None = None  # callable type
 
 
 @dataclass
@@ -50,8 +49,8 @@ class AgentStrategy:
             max_recent_events: Maximum number of recent events to track.
         """
         self.current_phase = GamePhase.UNKNOWN
-        self.goals: List[Goal] = []
-        self.completed_goals: List[str] = []
+        self.goals: list[Goal] = []
+        self.completed_goals: list[str] = []
         self.recent_events: deque = deque(maxlen=max_recent_events)
         self.exploration_rate = max(0.0, min(1.0, exploration_rate))  # Clamp between 0 and 1
         self.step_count = 0
@@ -116,7 +115,7 @@ class AgentStrategy:
             ),
         ]
     
-    def update_phase(self, game_state: str, memory_data: Optional[Dict] = None):
+    def update_phase(self, game_state: str, memory_data: dict | None = None):
         """Update current game phase based on game state.
         
         Args:
@@ -149,7 +148,7 @@ class AgentStrategy:
         else:
             self.current_phase = GamePhase.UNKNOWN
     
-    def get_current_goal(self) -> Optional[Goal]:
+    def get_current_goal(self) -> Goal | None:
         """Get the highest priority incomplete goal.
         
         Returns:
@@ -164,7 +163,7 @@ class AgentStrategy:
         return incomplete_goals[0]
     
     def suggest_action_for_goal(self, goal: Goal, game_state: str, 
-                               memory_data: Optional[Dict] = None) -> Optional[str]:
+                               memory_data: dict | None = None) -> str | None:
         """Suggest an action to progress toward a goal.
         
         Args:
@@ -312,7 +311,7 @@ class AgentStrategy:
         
         return rate
     
-    def get_strategy_context(self, game_state: str, memory_data: Optional[Dict] = None) -> Dict:
+    def get_strategy_context(self, game_state: str, memory_data: dict | None = None) -> dict:
         """Get strategy context for prompt generation.
         
         Args:
@@ -354,7 +353,7 @@ class AgentStrategy:
                 self.completed_goals.append(goal_name)
                 break
     
-    def check_goal_completion(self, memory_data: Optional[Dict] = None, game_state: str = "unknown"):
+    def check_goal_completion(self, memory_data: dict | None = None, game_state: str = "unknown"):
         """Automatically check and mark goals as complete based on game state.
         
         Args:
@@ -422,7 +421,7 @@ class AgentStrategy:
             if map_id == 0x0B:  # Route 1
                 self.mark_goal_complete("explore_route_1")
     
-    def get_progress_summary(self) -> Dict:
+    def get_progress_summary(self) -> dict:
         """Get summary of agent progress.
         
         Returns:

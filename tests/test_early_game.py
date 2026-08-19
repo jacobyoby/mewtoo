@@ -1,5 +1,4 @@
 """Unit tests for the early-game naming-screen handler."""
-import pytest
 from early_game import EarlyGameHandler
 
 
@@ -129,9 +128,10 @@ class TestAgentIntegration:
     """The agent consults the handler before its generic policies."""
 
     def test_agent_uses_scripted_action_on_naming_menu(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+
         from game_state import GameState
         from pokemon_agent import PokemonAgent
-        from unittest.mock import Mock
 
         game_state = GameState(mock_pyboy, ocr_enabled=False)
         agent = PokemonAgent(mock_llm_provider, game_state)
@@ -148,9 +148,10 @@ class TestAgentIntegration:
         assert agent.get_action() == "DOWN"
 
     def test_agent_falls_through_when_handler_declines(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+
         from game_state import GameState
         from pokemon_agent import PokemonAgent
-        from unittest.mock import Mock
 
         game_state = GameState(mock_pyboy, ocr_enabled=False)
         agent = PokemonAgent(mock_llm_provider, game_state)

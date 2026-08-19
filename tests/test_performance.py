@@ -1,11 +1,12 @@
 """Performance benchmark tests for Mewtwo."""
-import pytest
 import time
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, patch
+
+import pytest
+
+from game_state import GameState
 from metrics import MetricsCollector
 from pokemon_agent import PokemonAgent
-from game_state import GameState
-from llm_provider import OllamaProvider
 
 
 class TestPerformanceBenchmarks:

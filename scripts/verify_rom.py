@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 
+
 def verify_rom(rom_path: str):
     """Verify if a ROM file is valid."""
     rom_file = Path(rom_path)
@@ -71,7 +72,7 @@ def main():
     
     if verify_rom(rom_path):
         print("\nROM file is valid and ready to use!")
-        print(f"\nRun the agent with:")
+        print("\nRun the agent with:")
         print(f"  python main.py --rom {rom_path} --steps 100 --display")
     else:
         print("\nROM file verification failed.")

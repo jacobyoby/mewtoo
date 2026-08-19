@@ -1,7 +1,8 @@
 """Tests for metrics module."""
+
 import pytest
-import time
-from metrics import MetricsCollector, PerformanceMetrics, LLMMetrics, CacheMetrics
+
+from metrics import CacheMetrics, LLMMetrics, MetricsCollector, PerformanceMetrics
 
 
 class TestPerformanceMetrics:

@@ -1,8 +1,8 @@
 """Tests for pokemon_agent module."""
-import pytest
-from unittest.mock import Mock, MagicMock, patch
-from pokemon_agent import PokemonAgent
+from unittest.mock import Mock
+
 from game_state import GameState
+from pokemon_agent import PokemonAgent
 
 
 class TestPokemonAgent:

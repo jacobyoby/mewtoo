@@ -1,9 +1,10 @@
 """View and analyze validation screenshots."""
 import os
 import sys
-from pathlib import Path
-from PIL import Image
+
 import numpy as np
+from PIL import Image
+
 
 def analyze_screenshot(image_path: str):
     """Analyze a screenshot and print information about it.
@@ -49,7 +50,7 @@ def analyze_screenshot(image_path: str):
             import pytesseract
             text = pytesseract.image_to_string(img)
             if text.strip():
-                print(f"\nDetected Text (first 200 chars):")
+                print("\nDetected Text (first 200 chars):")
                 print(text.strip()[:200])
             else:
                 print("\nNo text detected in image")

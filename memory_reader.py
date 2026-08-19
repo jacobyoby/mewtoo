@@ -8,7 +8,6 @@ Memory addresses reference:
 - WRAM addresses (0xC000-0xDFFF) are used for game state
 """
 
-from typing import Dict, List, Optional, Tuple
 from pyboy import PyBoy
 
 
@@ -98,7 +97,7 @@ class MemoryReader:
                 return self.pyboy.get_memory_value(address)
             
             return 0
-        except (IndexError, AttributeError, TypeError, KeyError) as e:
+        except (IndexError, AttributeError, TypeError, KeyError):
             # Return 0 on any error (address might not be accessible yet)
             return 0
     
@@ -118,7 +117,7 @@ class MemoryReader:
         except (IndexError, AttributeError):
             return 0
     
-    def read_bytes(self, address: int, count: int) -> List[int]:
+    def read_bytes(self, address: int, count: int) -> list[int]:
         """Read multiple bytes from memory.
         
         Args:
@@ -133,7 +132,7 @@ class MemoryReader:
         except (IndexError, AttributeError):
             return [0] * count
     
-    def read_player_position(self) -> Tuple[int, int]:
+    def read_player_position(self) -> tuple[int, int]:
         """Read player position (X, Y coordinates).
         
         Returns:
@@ -143,7 +142,7 @@ class MemoryReader:
         y = self.read_byte(MemoryAddresses.PLAYER_Y)
         return (x, y)
     
-    def read_current_map(self) -> Dict[str, int]:
+    def read_current_map(self) -> dict[str, int]:
         """Read current map/location information.
         
         Returns:
@@ -196,7 +195,7 @@ class MemoryReader:
         
         return name
     
-    def read_pokemon_party(self) -> List[Dict]:
+    def read_pokemon_party(self) -> list[dict]:
         """Read Pokemon party status.
         
         Returns:
@@ -232,7 +231,7 @@ class MemoryReader:
         
         return party
     
-    def read_health_hp(self) -> Dict[str, any]:
+    def read_health_hp(self) -> dict[str, any]:
         """Read health/HP values for party Pokemon.
         
         Returns:
@@ -252,7 +251,7 @@ class MemoryReader:
             "fainted_count": sum(1 for p in party if p["fainted"]),
         }
     
-    def read_inventory(self) -> List[Dict[str, int]]:
+    def read_inventory(self) -> list[dict[str, int]]:
         """Read inventory items.
         
         Returns:
@@ -280,7 +279,7 @@ class MemoryReader:
         
         return inventory
     
-    def detect_menu_state(self) -> Dict[str, any]:
+    def detect_menu_state(self) -> dict[str, any]:
         """Detect current menu state.
         
         Returns:
@@ -312,7 +311,7 @@ class MemoryReader:
             "text_box_open": text_box_flag != 0,
         }
     
-    def read_battle_state(self) -> Dict[str, any]:
+    def read_battle_state(self) -> dict[str, any]:
         """Read battle state information.
         
         Returns:
@@ -332,7 +331,7 @@ class MemoryReader:
         
         return battle_info
     
-    def read_full_game_state(self) -> Dict[str, any]:
+    def read_full_game_state(self) -> dict[str, any]:
         """Read complete game state from memory.
         
         Returns:

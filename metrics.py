@@ -3,7 +3,6 @@
 Version: 0.0.7
 """
 import time
-from typing import Dict, List, Optional
 from collections import deque
 from datetime import datetime
 
@@ -13,9 +12,9 @@ class PerformanceMetrics:
     
     def __init__(self):
         """Initialize performance metrics tracker."""
-        self.step_times: List[float] = []
-        self.ocr_times: List[float] = []
-        self.llm_times: List[float] = []
+        self.step_times: list[float] = []
+        self.ocr_times: list[float] = []
+        self.llm_times: list[float] = []
         self.total_steps = 0
         self.total_ocr_calls = 0
         self.total_llm_calls = 0
@@ -55,21 +54,21 @@ class PerformanceMetrics:
         self.recent_llm_times.append(duration)
         self.total_llm_calls += 1
     
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get performance statistics.
         
         Returns:
             Dictionary with performance metrics
         """
-        def safe_avg(values: List[float]) -> float:
+        def safe_avg(values: list[float]) -> float:
             """Calculate average safely."""
             return sum(values) / len(values) if values else 0.0
         
-        def safe_min(values: List[float]) -> float:
+        def safe_min(values: list[float]) -> float:
             """Calculate minimum safely."""
             return min(values) if values else 0.0
         
-        def safe_max(values: List[float]) -> float:
+        def safe_max(values: list[float]) -> float:
             """Calculate maximum safely."""
             return max(values) if values else 0.0
         
@@ -109,7 +108,7 @@ class LLMMetrics:
         self.call_count = 0
         self.total_tokens = 0
         self.total_latency = 0.0
-        self.latencies: List[float] = []
+        self.latencies: list[float] = []
         self.errors = 0
         self.timeouts = 0
         
@@ -117,7 +116,7 @@ class LLMMetrics:
         self.recent_latencies = deque(maxlen=100)
         self.recent_tokens = deque(maxlen=100)
     
-    def record_call(self, latency: float, tokens: Optional[int] = None, error: bool = False, timeout: bool = False):
+    def record_call(self, latency: float, tokens: int | None = None, error: bool = False, timeout: bool = False):
         """Record an LLM call.
         
         Args:
@@ -141,13 +140,13 @@ class LLMMetrics:
         if timeout:
             self.timeouts += 1
     
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get LLM call statistics.
         
         Returns:
             Dictionary with LLM metrics
         """
-        def safe_avg(values: List[float]) -> float:
+        def safe_avg(values: list[float]) -> float:
             """Calculate average safely."""
             return sum(values) / len(values) if values else 0.0
         
@@ -205,7 +204,7 @@ class CacheMetrics:
         self.size = current_size
         self.max_size = max_size
     
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Get cache statistics.
         
         Returns:
@@ -236,7 +235,7 @@ class MetricsCollector:
         self.cache = CacheMetrics()
         self.start_time = time.time()
     
-    def get_all_stats(self) -> Dict:
+    def get_all_stats(self) -> dict:
         """Get all collected metrics.
         
         Returns:

@@ -1,7 +1,7 @@
 """Tests for memory_reader module."""
-import pytest
-from unittest.mock import Mock, MagicMock
-from memory_reader import MemoryReader, MemoryAddresses, get_map_name
+from unittest.mock import Mock
+
+from memory_reader import MemoryAddresses, MemoryReader, get_map_name
 
 
 class TestMemoryAddresses:

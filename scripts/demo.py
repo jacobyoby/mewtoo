@@ -7,9 +7,10 @@ script_dir = Path(__file__).parent
 project_root = script_dir.parent
 sys.path.insert(0, str(project_root))
 
-from llm_provider import OllamaProvider, ClaudeProvider
 import os
+
 from dotenv import load_dotenv
+
 
 def demo_llm_providers():
     """Demonstrate LLM providers."""

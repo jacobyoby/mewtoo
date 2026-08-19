@@ -1,12 +1,13 @@
 """Analyze Pokemon agent log files."""
 import json
 import sys
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
+
 
 def analyze_log(log_path: str):
     """Analyze a log file and print statistics."""
-    with open(log_path, 'r', encoding='utf-8') as f:
+    with open(log_path, encoding='utf-8') as f:
         data = json.load(f)
     
     print("=" * 70)

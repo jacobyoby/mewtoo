@@ -1,5 +1,4 @@
 """Tests for llm_optimizer module."""
-import pytest
 from llm_optimizer import ActionCache, PromptOptimizer, RepetitionDetector
 
 
