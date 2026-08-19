@@ -28,16 +28,23 @@ class LLMProvider(ABC):
 class OllamaProvider(LLMProvider):
     """Ollama provider for local LLM inference."""
     
-    def __init__(self, model: str = "llama3.2", metrics=None):
+    def __init__(self, model: str = "llama3.2", metrics=None,
+                 think: bool | None = None, timeout: int = 30):
         """Initialize Ollama provider.
-        
+
         Args:
             model: Model name to use (default: llama3.2)
             metrics: Optional metrics collector instance
+            think: For reasoning models (qwen3 etc.): False disables the
+                thinking phase, True forces it, None uses the model default
+            timeout: Per-call timeout in seconds (default: 30; raise for
+                larger models used off the hot path, e.g. the planner)
         """
         self.model = model
         self.client = ollama.Client()
         self.metrics = metrics
+        self.think = think
+        self.timeout = timeout
         
         # Validate model exists
         try:
@@ -129,16 +136,15 @@ class OllamaProvider(LLMProvider):
             "temperature": 0.1,  # Lower temperature for more deterministic responses
         }
         
+        chat_kwargs = {"model": self.model, "messages": messages, "options": options}
+        if self.think is not None:
+            chat_kwargs["think"] = self.think
+
         start_time = time.time()
         try:
-            # Add timeout protection (30 seconds max)
             response = self._call_with_timeout(
-                lambda: self.client.chat(
-                    model=self.model,
-                    messages=messages,
-                    options=options
-                ),
-                timeout=30
+                lambda: self.client.chat(**chat_kwargs),
+                timeout=self.timeout
             )
             latency = time.time() - start_time
             
@@ -160,7 +166,7 @@ class OllamaProvider(LLMProvider):
             latency = time.time() - start_time
             if self.metrics:
                 self.metrics.llm.record_call(latency, timeout=True)
-            raise ValueError(f"LLM call timed out after 30 seconds. Model: {self.model}") from None
+            raise ValueError(f"LLM call timed out after {self.timeout} seconds. Model: {self.model}") from None
         except Exception as e:
             latency = time.time() - start_time
             if self.metrics:
@@ -179,7 +185,7 @@ class OllamaProvider(LLMProvider):
 class ClaudeProvider(LLMProvider):
     """Anthropic Claude provider for cloud-based inference."""
     
-    def __init__(self, api_key: str | None = None, model: str = "claude-3-5-sonnet-20241022", metrics=None):
+    def __init__(self, api_key: str | None = None, model: str = "claude-sonnet-5", metrics=None):
         """Initialize Claude provider.
         
         Args:

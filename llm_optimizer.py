@@ -163,7 +163,10 @@ class PromptOptimizer:
                 strategy_parts.append(f"Phase: {strategy_context['phase']}")
             if "completed_goals" in strategy_context and strategy_context["completed_goals"]:
                 strategy_parts.append(f"Completed: {', '.join(strategy_context['completed_goals'][-3:])}")
-            
+            if strategy_context.get("plan"):
+                # Directive from the slow-lane planner model
+                strategy_parts.append(f"Strategy directive: {strategy_context['plan']}")
+
             strategy_info = "\n".join(strategy_parts) if strategy_parts else ""
         
         # Context-aware hints based on game state

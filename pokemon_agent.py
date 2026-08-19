@@ -42,9 +42,10 @@ class PokemonAgent:
 No explanations. Just the action."""
 
     def __init__(self, llm_provider: LLMProvider, game_state: GameState, use_cache: bool = True,
-                 use_strategy: bool = True, goal_check_interval: int = 5, metrics: MetricsCollector | None = None):
+                 use_strategy: bool = True, goal_check_interval: int = 5, metrics: MetricsCollector | None = None,
+                 planner=None):
         """Initialize Pokemon Agent.
-        
+
         Args:
             llm_provider: LLM provider instance
             game_state: GameState instance
@@ -52,6 +53,9 @@ No explanations. Just the action."""
             use_strategy: Enable goal-oriented strategy (default: True, can be overridden by config)
             goal_check_interval: Check goal completion every N steps (default: 5, higher = less frequent)
             metrics: Optional metrics collector instance
+            planner: Optional PlannerAgent — a slower, bigger model that
+                periodically produces a strategy directive injected into
+                this (fast) agent's prompts
         """
         config = get_config()
         agent_config = config.get_agent_config()
@@ -68,6 +72,7 @@ No explanations. Just the action."""
         self.new_game_started = False  # Track if we've started a new game (prevent backing out)
         self.character_creation_steps = 0  # Track steps in character creation
         self.early_game_handler = EarlyGameHandler()  # Scripted naming-screen sequences
+        self.planner = planner  # Optional slow-cadence strategy planner
         self.prompt_optimizer = PromptOptimizer()
         self.repetition_detector = RepetitionDetector()
         self.metrics = metrics  # Store metrics collector
@@ -180,7 +185,14 @@ No explanations. Just the action."""
                 "health": game_info.get('health', {}),
             }
             strategy_context = self.strategy.get_strategy_context(game_state, memory_data)
-        
+
+        # Inject the planner's latest directive so the fast model inherits
+        # long-horizon direction without paying for it per step
+        if self.planner and self.planner.current_plan:
+            if strategy_context is None:
+                strategy_context = {}
+            strategy_context["plan"] = self.planner.current_plan
+
         # Use enhanced prompt with all context
         return self.prompt_optimizer.optimize_prompt(
             screen_text, game_info['frame_count'], step_count, recent_actions, game_state,
@@ -672,12 +684,28 @@ No explanations. Just the action."""
             Dictionary with step information
         """
         step_start_time = time.time()
-        
+
         # Get current game state before action
         pre_state = self.game_state.get_game_info()
         pre_frame = pre_state['frame_count']
         pre_text = pre_state.get('screen_text', '')
         pre_game_state = pre_state.get('game_state', 'unknown')
+
+        # Consult the slow-lane planner (no-op unless a plan is due)
+        if self.planner:
+            completed = len(self.strategy.completed_goals) if self.strategy else 0
+            summary = ""
+            if self.strategy:
+                goal = self.strategy.get_current_goal()
+                if goal:
+                    summary = f"Current goal: {goal.description}"
+            self.planner.maybe_plan(
+                step_count=self.step_count,
+                game_info=pre_state,
+                stuck_count=self.stuck_count,
+                strategy_summary=summary,
+                completed_goals=completed,
+            )
         
         # Check if strategy suggests an action
         action = None

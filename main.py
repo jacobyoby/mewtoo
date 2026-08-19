@@ -18,6 +18,7 @@ from config import get_config, setup_tesseract
 from game_state import GameState
 from llm_provider import ClaudeProvider, LLMProvider, OllamaProvider
 from metrics import MetricsCollector
+from planner import PlannerAgent
 from pokemon_agent import PokemonAgent
 
 
@@ -39,13 +40,13 @@ def create_llm_provider(provider: str, model: str | None = None, config=None, me
     llm_config = config.get_llm_config()
 
     if provider.lower() == "ollama":
-        default_model = model or llm_config.get("ollama_model", "llama3.2")
+        default_model = model or llm_config.get("ollama_model", "gemma3:4b")
         return OllamaProvider(model=default_model, metrics=metrics)
     elif provider.lower() == "claude":
         api_key = os.getenv("ANTHROPIC_API_KEY")
         if not api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
-        default_model = model or llm_config.get("claude_model", "claude-3-5-sonnet-20241022")
+        default_model = model or llm_config.get("claude_model", "claude-sonnet-5")
         return ClaudeProvider(api_key=api_key, model=default_model, metrics=metrics)
     else:
         raise ValueError(f"Unknown provider: {provider}")
@@ -77,7 +78,7 @@ def build_parser(config) -> argparse.ArgumentParser:
         "--model",
         type=str,
         default=None,
-        help=f"Model name (default: {config.get('llm.ollama_model', 'llama3.2')} for Ollama, {config.get('llm.claude_model', 'claude-3-5-sonnet-20241022')} for Claude)"
+        help=f"Model name (default: {config.get('llm.ollama_model', 'gemma3:4b')} for Ollama, {config.get('llm.claude_model', 'claude-sonnet-5')} for Claude)"
     )
     parser.add_argument(
         "--display",
@@ -151,6 +152,17 @@ def build_parser(config) -> argparse.ArgumentParser:
         "--verbose", "-v",
         action="store_true",
         help="Show debug-level diagnostics (stuck details, screenshot skips)"
+    )
+    parser.add_argument(
+        "--planner-model",
+        type=str,
+        default=None,
+        help=f"Model for the slow-lane strategy planner (default: {config.get('planner.model', 'qwen3:8b')}). Planner directives are injected into the fast actor's prompts."
+    )
+    parser.add_argument(
+        "--no-planner",
+        action="store_true",
+        help="Disable the two-tier planner (actor model only)"
     )
     return parser
 
@@ -281,6 +293,29 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
                            memory_check_interval=memory_interval, ocr_scale_factor=args.ocr_scale,
                            metrics=metrics)
 
+    # Two-tier brain: a slower planner model whose directives are injected
+    # into the fast actor's prompts. Ollama-only for now (local, free).
+    planner = None
+    planner_enabled = config.get("planner.enabled", True) and not args.no_planner
+    if planner_enabled:
+        planner_model = args.planner_model or config.get("planner.model", "qwen3:8b")
+        try:
+            planner_provider = OllamaProvider(
+                model=planner_model, metrics=metrics,
+                think=config.get("planner.think", False),
+                timeout=config.get("planner.timeout", 60),
+            )
+            planner = PlannerAgent(
+                planner_provider,
+                interval=config.get("planner.interval", 25),
+                min_gap=config.get("planner.min_gap", 10),
+                max_tokens=config.get("planner.max_tokens", 700),
+                metrics=metrics,
+            )
+            print(f"Planner enabled: {planner_provider.model} every ~{planner.interval} steps")
+        except Exception as e:
+            print(f"Warning: planner disabled ({e})")
+
     agent_config = config.get_agent_config()
     agent = PokemonAgent(
         llm_provider,
@@ -288,7 +323,8 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
         use_cache=agent_config.get("use_cache", True),
         use_strategy=agent_config.get("use_strategy", True),
         goal_check_interval=goal_interval,
-        metrics=metrics
+        metrics=metrics,
+        planner=planner
     )
     return agent, frames_per_step
 

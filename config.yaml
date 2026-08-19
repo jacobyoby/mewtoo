@@ -60,10 +60,33 @@ llm:
   max_tokens: 10
   
   # Default model for Ollama
-  ollama_model: "llama3.2"
+  ollama_model: "gemma3:4b"
   
   # Default model for Claude
-  claude_model: "claude-3-5-sonnet-20241022"
+  claude_model: "claude-sonnet-5"
+
+# Planner Configuration (slow-lane strategy model feeding the fast actor)
+planner:
+  # Enable the two-tier brain (planner directives injected into actor prompts)
+  enabled: true
+
+  # Model for the planner (bigger/smarter than the actor; <think> blocks are stripped)
+  model: "qwen3:8b"
+
+  # Plan at least every N steps
+  interval: 25
+
+  # Never plan more often than every N steps (rate limit for triggers)
+  min_gap: 10
+
+  # Let the model think before answering (slower; off keeps planning snappy)
+  think: false
+
+  # Per-call timeout in seconds (planner runs off the hot path)
+  timeout: 60
+
+  # Token budget per planning call
+  max_tokens: 200
 
 # OCR Configuration
 ocr:
