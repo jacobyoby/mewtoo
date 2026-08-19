@@ -256,6 +256,13 @@ No explanations. Just the action."""
             return False
         return self.new_game_started and self.character_creation_steps < 50
 
+    def _text_box_open(self) -> bool:
+        """True when a Gen 1 text box is on screen (pixel check, no memory)."""
+        try:
+            return self.game_state.detect_text_box()
+        except Exception:
+            return False
+
     def _cache_action(self, obs: "Observation", action: str) -> str:
         """Store an action in the cache under the observation's key."""
         if self.action_cache:
@@ -439,10 +446,10 @@ No explanations. Just the action."""
             return None
         if self._phantom_menu:
             # Stale menu bytes: Gen 1 never zeroes its menu RAM after a menu
-            # closes, so memory can report "pokemon_menu" indefinitely while
-            # the screen shows plain overworld. Once diagnosed, reclassify
-            # for the rest of the chain so movement logic runs.
-            obs.game_state = 'overworld'
+            # closes, so memory can report "pokemon_menu" indefinitely. Trust
+            # pixels instead: a solid white bottom panel means a text box is
+            # open (press A), otherwise it is plain overworld.
+            obs.game_state = 'dialog' if self._text_box_open() else 'overworld'
             return None
         self._menu_steps += 1
 
@@ -451,9 +458,9 @@ No explanations. Just the action."""
             # that slowly -- this is leftover menu RAM, not an open menu
             logger.info(f"[MENU_ESCAPE] Step {obs.step_count}: menu state for "
                         f"{self._menu_steps} steps despite B presses -- "
-                        f"treating as phantom (stale memory), acting as overworld")
+                        f"treating as phantom (stale memory), trusting pixels")
             self._phantom_menu = True
-            obs.game_state = 'overworld'
+            obs.game_state = 'dialog' if self._text_box_open() else 'overworld'
             return None
 
         if self._in_creation_window() or obs.is_character_creation:

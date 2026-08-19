@@ -174,6 +174,24 @@ class GameState:
         
         return filepath
     
+    def detect_text_box(self, image: np.ndarray | None = None,
+                        white_threshold: float = 0.5) -> bool:
+        """Detect a Gen 1 text box by its solid white bottom panel.
+
+        Sharper than detect_dialog_box_visually(), which keys on edges and
+        false-positives on textured walls (the bedroom wallpaper reads as a
+        dialog box). Measured on real frames: overworld bottom-third is
+        8-22% white, an open text box is ~78%.
+        """
+        if image is None:
+            image = self.get_screen_image()
+        if image is None or len(image.shape) < 2:
+            return False
+        h = image.shape[0]
+        panel = image[int(h * 0.60):, :, :3] if len(image.shape) == 3 else image[int(h * 0.60):]
+        gray = panel.mean(axis=2) if panel.ndim == 3 else panel
+        return float((gray > 200).mean()) > white_threshold
+
     def detect_dialog_box_visually(self, image: np.ndarray | None = None) -> bool:
         """Detect if a dialogue box is present visually (even if OCR fails).
         
