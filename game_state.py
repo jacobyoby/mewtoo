@@ -551,6 +551,12 @@ class GameState:
         if button not in self.BUTTONS:
             raise ValueError(f"Unknown button: {button}")
 
+        # Directional input: the first frames of a press only TURN the
+        # player; committing a full tile step takes ~16 held frames. The
+        # 8-frame default left the agent turning in place forever.
+        if button in ("UP", "DOWN", "LEFT", "RIGHT") and hold_frames < 18:
+            hold_frames = 18
+
         button_id = self.BUTTONS[button]
         self.pyboy.button_press(button_id)
 
