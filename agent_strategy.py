@@ -186,6 +186,27 @@ class AgentStrategy:
             elif game_state == "menu":
                 # Navigate to starter selection
                 return "DOWN"  # Usually need to go down to select starter
+            elif game_state == "overworld" and memory_data:
+                # Known route to Professor Oak (Bulbapedia walkthrough):
+                # bedroom stairs are top-right, house door is at the bottom,
+                # walking to Pallet Town's north edge triggers the Oak
+                # cutscene, and the starter balls sit on the lab table
+                # up and to the right of the entrance.
+                map_id = (memory_data.get("current_map") or {}).get("map_id")
+                pos = memory_data.get("player_position") or (0, 0)
+                x, y = (pos[0], pos[1]) if len(pos) >= 2 else (0, 0)
+                if map_id == 0x26:  # Red's House 2F: stairs top-right
+                    return "RIGHT" if y <= 1 else ("UP" if x >= 7 else "RIGHT")
+                elif map_id == 0x25:  # Red's House 1F: exit at the bottom
+                    return "DOWN"
+                elif map_id == 0x00:  # Pallet Town: north edge triggers Oak
+                    return "UP"
+                elif map_id == 0x28:  # Oak's Lab: ball table is up-right
+                    if y > 4:
+                        return "UP"
+                    elif x < 6:
+                        return "RIGHT"
+                    return "A"  # Facing the table: interact
         
         elif goal.name == "reach_viridian":
             if game_state == "overworld":

@@ -352,6 +352,10 @@ class MemoryReader:
 # Map ID to name mapping (common maps in Pokemon Red)
 MAP_NAMES = {
     0x00: "Pallet Town",
+    0x25: "Red's House 1F",
+    0x26: "Red's House 2F",
+    0x27: "Blue's House",
+    0x28: "Oak's Lab",
     0x01: "Viridian City",
     0x02: "Pewter City",
     0x03: "Cerulean City",
