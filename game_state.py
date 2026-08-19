@@ -532,25 +532,30 @@ class GameState:
                 "memory_enabled": self.memory_enabled,
             }
     
-    def press_button(self, button: str, hold_frames: int = 1):
+    def press_button(self, button: str, hold_frames: int = 8, settle_frames: int = 4):
         """Press a button.
-        
+
         Args:
             button: Button name (UP, DOWN, LEFT, RIGHT, A, B, SELECT, START)
-            hold_frames: Number of frames to hold the button
+            hold_frames: Frames to hold the button. Default 8: a 1-frame tap
+                is frequently missed by the game's input polling, which made
+                the agent appear stuck on intro/loading screens.
+            settle_frames: Frames to run after release so the game processes
+                the input before the next observation.
         """
         if button not in self.BUTTONS:
             raise ValueError(f"Unknown button: {button}")
-        
+
         button_id = self.BUTTONS[button]
         self.pyboy.button_press(button_id)
-        
+
         # Hold for specified frames
         for _ in range(hold_frames):
             self.pyboy.tick()
-        
+
         self.pyboy.button_release(button_id)
-        self.pyboy.tick()
+        for _ in range(settle_frames):
+            self.pyboy.tick()
     
     def execute_action(self, action: str) -> bool:
         """Execute an action string.
@@ -579,8 +584,11 @@ class GameState:
         # Handle special commands
         if action.startswith("WAIT"):
             try:
-                frames = int(action.split()[1]) if len(action.split()) > 1 else 10
-                for _ in range(frames):
+                # WAIT N is in ticks of 15 frames (~0.25s of game time each);
+                # raw single-frame waits were far too short to let loading
+                # screens and transitions play out
+                units = int(action.split()[1]) if len(action.split()) > 1 else 10
+                for _ in range(units * 15):
                     self.pyboy.tick()
                 return True
             except (ValueError, IndexError):

@@ -126,7 +126,7 @@ class TestGameState:
         result = game_state.execute_action("WAIT 5")
         
         assert result is True
-        assert mock_pyboy.tick.call_count == 5
+        assert mock_pyboy.tick.call_count == 5 * 15  # WAIT units are 15 frames each
     
     def test_execute_action_invalid(self, mock_pyboy):
         """Test executing invalid action."""

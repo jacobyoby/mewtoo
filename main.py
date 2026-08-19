@@ -258,8 +258,8 @@ def init_pyboy(rom_path: Path, args) -> PyBoy:
         traceback.print_exc()
         sys.exit(1)
 
-    # Wait for game to load
-    for _ in range(60):
+    # Wait for game to load — boot + intro is ~600 frames
+    for _ in range(600):
         pyboy.tick()
 
     print("Game loaded!")

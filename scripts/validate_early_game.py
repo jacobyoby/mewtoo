@@ -454,7 +454,8 @@ def run_validation_test(rom_path: str, num_runs: int = 10, max_steps: int = 500,
             pyboy.set_emulation_speed(0)  # Unlimited speed
             
             # Wait for game to load (same as main.py)
-            for _ in range(60):
+            # Boot + intro takes ~600 frames before there is anything to act on
+            for _ in range(600):
                 pyboy.tick()
             
             # Initialize components
