@@ -37,3 +37,4 @@ not a decision gap.
 
 Note: test_metrics_track_cache_operations flaked once during a live emulator
 run (passed in isolation and on re-run) — resource contention, not a defect.
+| 19 | Edge-scan swept the whole north fence (x=1,3,6..10) but never crossed to Route 1 | blocked_directions is global, not per-tile: once UP was marked blocked at one fence tile it stayed blocked at every column, so the gap column was never tried | retry the route direction every third scan step |

@@ -173,13 +173,18 @@ class TestEdgeScan:
         agent = self._agent(mock_llm_provider, mock_pyboy)
         agent.blocked_directions.add("UP")
         actions = [agent.get_action() for _ in range(6)]
-        assert all(a in ("LEFT", "RIGHT") for a in actions)
+        # Mostly lateral sweeping, with periodic retries of the blocked
+        # direction (blocked_directions is global, so the gap column must
+        # still get tried)
+        assert any(a in ("LEFT", "RIGHT") for a in actions)
+        assert all(a in ("LEFT", "RIGHT", "UP") for a in actions)
 
     def test_scan_alternates_direction_over_time(self, mock_llm_provider, mock_pyboy):
         agent = self._agent(mock_llm_provider, mock_pyboy)
         agent.blocked_directions.add("UP")
-        actions = [agent.get_action() for _ in range(12)]
-        assert len(set(actions)) == 2  # sweeps both ways, not one direction forever
+        actions = [agent.get_action() for _ in range(24)]
+        lateral = [a for a in actions if a in ("LEFT", "RIGHT")]
+        assert set(lateral) == {"LEFT", "RIGHT"}  # sweeps both ways
 
     def test_unblocked_route_resumes_and_resets_scan(self, mock_llm_provider, mock_pyboy):
         agent = self._agent(mock_llm_provider, mock_pyboy)
@@ -188,3 +193,27 @@ class TestEdgeScan:
         agent.blocked_directions.discard("UP")
         assert agent.get_action() == "UP"
         assert agent._edge_scan_steps == 0
+
+
+def test_edge_scan_retries_the_blocked_direction(mock_llm_provider, mock_pyboy):
+    """blocked_directions is global, so the gap column must still be retried."""
+    from unittest.mock import Mock
+
+    from game_state import GameState
+    from pokemon_agent import PokemonAgent
+
+    gs = GameState(mock_pyboy, ocr_enabled=False)
+    agent = PokemonAgent(mock_llm_provider, gs)
+    gs.get_game_info = Mock(return_value={
+        "screen_text": "", "frame_count": 100, "game_state": "overworld",
+        "party": [], "player_position": (10, 1),
+        "current_map": {"map_id": 0x00, "map_name": "Pallet Town"},
+    })
+    agent.new_game_started = True
+    agent.character_creation_steps = 60
+    agent.step_count = 300
+    agent.strategy.mark_goal_complete("start_game")
+    agent.blocked_directions.add("UP")
+    actions = [agent.get_action() for _ in range(9)]
+    assert actions.count("UP") >= 2  # retried while sweeping
+    assert any(a in ("LEFT", "RIGHT") for a in actions)

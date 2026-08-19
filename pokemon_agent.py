@@ -555,7 +555,15 @@ No explanations. Just the action."""
             if not options:
                 return None
             self._edge_scan_steps += 1
-            scan = options[(self._edge_scan_steps // 3) % len(options)]
+            # blocked_directions is global, not per-tile: once UP is marked
+            # blocked at one fence tile it stays blocked at every column, so
+            # the actual gap would never be tried. Retry the route direction
+            # every third step of the sweep.
+            if self._edge_scan_steps % 3 == 0:
+                logger.info(f"[ROUTE] Step {obs.step_count}: retrying {action} "
+                            f"after {self._edge_scan_steps} scan steps")
+                return action
+            scan = options[(self._edge_scan_steps // 6) % len(options)]
             logger.info(f"[ROUTE] Step {obs.step_count}: {action} blocked -- "
                         f"scanning {scan} along the wall for an opening")
             return scan
