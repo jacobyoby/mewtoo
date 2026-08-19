@@ -88,6 +88,19 @@ planner:
   # Token budget per planning call
   max_tokens: 200
 
+# Vision Configuration (multimodal advisor consulted when navigation stalls)
+vision:
+  enabled: true
+
+  # Must be a multimodal model (gemma3 is; qwen3 is not)
+  model: "gemma3:4b"
+
+  # Upscale factor for the 160x144 screen before sending
+  scale: 3
+
+  # Minimum steps between looks (each call takes ~7s)
+  cooldown_steps: 12
+
 # OCR Configuration
 ocr:
   # Enable OCR (disable for faster performance)

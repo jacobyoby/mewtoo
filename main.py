@@ -20,6 +20,7 @@ from llm_provider import ClaudeProvider, LLMProvider, OllamaProvider
 from metrics import MetricsCollector
 from planner import PlannerAgent
 from pokemon_agent import PokemonAgent
+from vision import VisionAdvisor
 
 
 def create_llm_provider(provider: str, model: str | None = None, config=None, metrics=None) -> LLMProvider:
@@ -163,6 +164,17 @@ def build_parser(config) -> argparse.ArgumentParser:
         "--no-planner",
         action="store_true",
         help="Disable the two-tier planner (actor model only)"
+    )
+    parser.add_argument(
+        "--no-vision",
+        action="store_true",
+        help="Disable the multimodal stuck-time advisor (vision lets the agent see the screen when navigation stalls)"
+    )
+    parser.add_argument(
+        "--vision-model",
+        type=str,
+        default=None,
+        help=f"Multimodal model for stuck-time navigation advice (default: {config.get('vision.model', 'gemma3:4b')})"
     )
     parser.add_argument(
         "--load-state",
@@ -347,6 +359,20 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
         except Exception as e:
             print(f"Warning: planner disabled ({e})")
 
+    # Vision: consulted only when navigation stalls (~7s per look)
+    vision = None
+    if config.get("vision.enabled", True) and not args.no_vision:
+        try:
+            vision = VisionAdvisor(
+                model=args.vision_model or config.get("vision.model", "gemma3:4b"),
+                scale=config.get("vision.scale", 3),
+                cooldown_steps=config.get("vision.cooldown_steps", 12),
+                metrics=metrics,
+            )
+            print(f"Vision enabled: {vision.model} on stalls")
+        except Exception as e:
+            print(f"Warning: vision disabled ({e})")
+
     agent_config = config.get_agent_config()
     agent = PokemonAgent(
         llm_provider,
@@ -355,7 +381,8 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
         use_strategy=agent_config.get("use_strategy", True),
         goal_check_interval=goal_interval,
         metrics=metrics,
-        planner=planner
+        planner=planner,
+        vision=vision
     )
     return agent, frames_per_step
 

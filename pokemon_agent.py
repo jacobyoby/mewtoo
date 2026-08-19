@@ -43,7 +43,7 @@ No explanations. Just the action."""
 
     def __init__(self, llm_provider: LLMProvider, game_state: GameState, use_cache: bool = True,
                  use_strategy: bool = True, goal_check_interval: int = 5, metrics: MetricsCollector | None = None,
-                 planner=None):
+                 planner=None, vision=None):
         """Initialize Pokemon Agent.
 
         Args:
@@ -56,6 +56,8 @@ No explanations. Just the action."""
             planner: Optional PlannerAgent — a slower, bigger model that
                 periodically produces a strategy directive injected into
                 this (fast) agent's prompts
+            vision: Optional VisionAdvisor — a multimodal model consulted
+                when the agent is stuck, to see which way is open
         """
         config = get_config()
         agent_config = config.get_agent_config()
@@ -73,6 +75,7 @@ No explanations. Just the action."""
         self.character_creation_steps = 0  # Track steps in character creation
         self.early_game_handler = EarlyGameHandler()  # Scripted naming-screen sequences
         self.planner = planner  # Optional slow-cadence strategy planner
+        self.vision = vision  # Optional multimodal stuck-time advisor
         self.prompt_optimizer = PromptOptimizer()
         self.repetition_detector = RepetitionDetector()
         self.metrics = metrics  # Store metrics collector
@@ -226,6 +229,7 @@ No explanations. Just the action."""
             self._a_spam_policy,
             self._menu_escape_policy,
             self._dialog_loop_policy,
+            self._vision_policy,
             self._route_policy,
             self._first_action_policy,
             self._diversity_policy,
@@ -513,6 +517,28 @@ No explanations. Just the action."""
         logger.info(f"[DIALOG_LOOP] Step {obs.step_count}: stepping {escape} "
                     f"away from the re-triggering tile")
         return escape
+
+    def _vision_policy(self, obs: "Observation") -> str | None:
+        """When stuck in the overworld, look at the screen and go that way.
+
+        Every other sensor is indirect (RAM, OCR, pixel stats) and the
+        navigation heuristics have no way to find, say, the single column
+        of Pallet Town's fence that opens onto Route 1. A multimodal model
+        can see the gap. Too slow for per-step use (~7s), so it runs only
+        on a genuine stall, rate-limited by its own cooldown.
+        """
+        if not self.vision or obs.game_state != 'overworld':
+            return None
+        if self.stuck_count < 6:
+            return None
+        if not self.vision.is_ready(obs.step_count):
+            return None
+        direction = self.vision.suggest_direction(
+            self.game_state.get_screen_image(), obs.step_count
+        )
+        if direction and direction not in self.blocked_directions:
+            return direction
+        return None
 
     def _route_policy(self, obs: "Observation") -> str | None:
         """Follow the encoded walkthrough route on known maps.

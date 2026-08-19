@@ -67,3 +67,12 @@ Next approaches, in order of promise:
 2. Map data — read Pallet Town's connection table from the ROM header
    rather than probing for the exit tile.
 3. Keep probing with a settle-and-verify wrapper around every move.
+
+## Vision lane added (2026-08-18, after the Pallet Town blocker)
+
+gemma3:4b is multimodal, verified on a real frame: given the Oak dialog
+screenshot it answered "a dialog text box is open... 'Okay! It's time to
+go!'" — it read the actual text. ~7.6s per call, far too slow for
+per-step use, so VisionAdvisor runs only on a genuine stall
+(stuck_count >= 6) with a 12-step cooldown, and answers one narrow
+question: which direction is open. Failures are non-fatal (returns None).
