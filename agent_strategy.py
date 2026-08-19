@@ -43,6 +43,10 @@ class AgentStrategy:
 
     # Pallet Town interiors: Red's House 1F/2F, Blue's House, Oak's Lab
     BUILDING_MAPS = {0x25, 0x26, 0x27, 0x28}
+
+    # The tile in Pallet Town where Oak intercepts the player heading north.
+    # Found by scripted probing, not by reading a map file.
+    OAK_TRIGGER = (10, 1)
     
     def __init__(self, exploration_rate: float = 0.3, max_recent_events: int = 10):
         """Initialize agent strategy.
@@ -216,12 +220,22 @@ class AgentStrategy:
                     return "RIGHT" if y <= 1 else ("UP" if x >= 7 else "RIGHT")
                 elif map_id == 0x25:  # Red's House 1F: exit at the bottom
                     return "DOWN"
-                elif map_id == 0x00:  # Pallet Town: north edge triggers Oak
+                elif map_id == 0x00:  # Pallet Town
                     if self._exit_maneuver_steps > 0:
                         # Just stepped out of a building: move clear of the
                         # doorway before heading north, or "UP" re-enters it
                         self._exit_maneuver_steps -= 1
                         return "DOWN" if self._exit_maneuver_steps == 2 else "LEFT"
+                    # Oak's cutscene fires at exactly (10, 1) -- the top-right
+                    # corner of the walkable area. Measured by driving the
+                    # emulator directly: every other column walls out at y=2
+                    # or y=6, and stepping onto (10,1) produces "OAK: Hey!"
+                    # and the scripted walk to his lab. Generic "head north"
+                    # never found this tile.
+                    if x < self.OAK_TRIGGER[0]:
+                        return "RIGHT"
+                    if x > self.OAK_TRIGGER[0]:
+                        return "LEFT"
                     return "UP"
                 elif map_id == 0x28:  # Oak's Lab
                     # The balls cannot be taken until Oak's cutscene fires,

@@ -119,14 +119,17 @@ class TestDoorExitManeuver:
         seq = [s.suggest_action_for_goal(goal, "overworld", md) for _ in range(5)]
         assert seq[0] == "DOWN"          # step away from the doorway
         assert "LEFT" in seq[1:3]        # move to a different column
-        assert seq[-1] == "UP"           # then resume heading north
+        # Then resume routing toward the Oak trigger tile (10, 1); from
+        # x=5 that means heading right, not straight north.
+        assert seq[-1] == "RIGHT"
 
     def test_no_maneuver_when_not_leaving_a_building(self):
         s = AgentStrategy()
         s.update_phase("overworld", {"current_map": {"map_id": 0x00}, "party": []})
         goal = next(g for g in s.goals if g.name == "get_starter")
         md = {"current_map": {"map_id": 0x00}, "player_position": (5, 6), "party": []}
-        assert s.suggest_action_for_goal(goal, "overworld", md) == "UP"
+        # No maneuver queued -> routes straight toward the trigger column
+        assert s.suggest_action_for_goal(goal, "overworld", md) == "RIGHT"
 
 
 def test_step_updates_map_tracking(mock_llm_provider, mock_pyboy):
@@ -217,3 +220,24 @@ def test_edge_scan_retries_the_blocked_direction(mock_llm_provider, mock_pyboy):
     actions = [agent.get_action() for _ in range(9)]
     assert actions.count("UP") >= 2  # retried while sweeping
     assert any(a in ("LEFT", "RIGHT") for a in actions)
+
+
+class TestOakTriggerTile:
+    """Pallet Town routing aims at the measured cutscene tile (10, 1)."""
+
+    def _suggest(self, pos):
+        s = AgentStrategy()
+        goal = next(g for g in s.goals if g.name == "get_starter")
+        return s.suggest_action_for_goal(goal, "overworld", {
+            "current_map": {"map_id": 0x00}, "player_position": pos, "party": [],
+        })
+
+    def test_walks_right_toward_the_trigger_column(self):
+        assert self._suggest((3, 6)) == "RIGHT"
+
+    def test_walks_left_when_past_the_trigger_column(self):
+        assert self._suggest((14, 4)) == "LEFT"
+
+    def test_pushes_north_once_on_the_column(self):
+        assert self._suggest((10, 6)) == "UP"
+        assert self._suggest((10, 1)) == "UP"

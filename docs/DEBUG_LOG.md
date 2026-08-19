@@ -96,3 +96,21 @@ Vision remains valuable for what it demonstrably does well (reading text
 and identifying screen contents). For the Pallet Town exit specifically,
 the ROM map-connection data (option 2 in the earlier blocker note) is the
 approach that can actually settle it.
+
+## SOLVED: the Pallet Town "wall" was Oak (2026-08-19)
+
+There was never a wall. Driving the emulator directly and screenshotting
+the pinned tile showed **"OAK: Hey!"** — stepping onto (10, 1) fires the
+cutscene. Every probe had been pressing UP into a scripted dialog and
+reading the resulting no-op as a fence.
+
+Measured facts now encoded:
+- Pallet Town is 20x18 tiles. The map header's width/height are in
+  BLOCKS (2x2 tiles), so the earlier "bounded" probe searched half the map.
+- Oak's trigger tile is (10, 1), the top-right corner of walkable ground.
+  Every other column walls out at y=2 or y=6; x=5 is Red's house door.
+- Pressing A through the cutscene carries the player into Oak's Lab
+  automatically (~40 presses), ending at (5, 3) with Oak asking
+  "Now, RED, which POKEMON do you want?".
+- Movement is locked during that prompt, and pressing A while facing Oak
+  just replays it — the ball grab needs the player to step aside first.
