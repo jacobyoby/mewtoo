@@ -100,6 +100,7 @@ No explanations. Just the action."""
         self._same_state_count = 0
         self._menu_steps = 0  # Consecutive steps observed in a menu
         self._creation_over = False  # Latched on first real overworld sighting
+        self._phantom_menu = False  # Menu state that B presses cannot close
 
         # Movement validation tracking
         self.movement_failures = {'UP': 0, 'DOWN': 0, 'LEFT': 0, 'RIGHT': 0}
@@ -434,8 +435,26 @@ No explanations. Just the action."""
         """
         if 'menu' not in obs.game_state:
             self._menu_steps = 0
+            self._phantom_menu = False
+            return None
+        if self._phantom_menu:
+            # Stale menu bytes: Gen 1 never zeroes its menu RAM after a menu
+            # closes, so memory can report "pokemon_menu" indefinitely while
+            # the screen shows plain overworld. Once diagnosed, reclassify
+            # for the rest of the chain so movement logic runs.
+            obs.game_state = 'overworld'
             return None
         self._menu_steps += 1
+
+        if self._menu_steps >= 10:
+            # ~7 B presses without the state changing: no real menu closes
+            # that slowly -- this is leftover menu RAM, not an open menu
+            logger.info(f"[MENU_ESCAPE] Step {obs.step_count}: menu state for "
+                        f"{self._menu_steps} steps despite B presses -- "
+                        f"treating as phantom (stale memory), acting as overworld")
+            self._phantom_menu = True
+            obs.game_state = 'overworld'
+            return None
 
         if self._in_creation_window() or obs.is_character_creation:
             return None

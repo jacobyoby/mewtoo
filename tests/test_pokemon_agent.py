@@ -263,3 +263,50 @@ class TestMenuEscapePolicy:
         })
         agent.get_action()
         assert agent._menu_steps == 0
+
+
+class TestPhantomMenu:
+    """Stale menu RAM (menu that B cannot close) gets reclassified."""
+
+    def _agent(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+
+        from game_state import GameState
+        from pokemon_agent import PokemonAgent
+        gs = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, gs)
+        gs.get_game_info = Mock(return_value={
+            "screen_text": "",
+            "frame_count": 100,
+            "game_state": "pokemon_menu",
+            "party": [{"species": 1, "level": 6}],
+            "player_position": (2, 6),
+            "current_map": {"map_id": 0x26, "map_name": "Red's House 2F"},
+        })
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 200
+        return agent
+
+    def test_persistent_menu_declared_phantom(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        actions = [agent.get_action() for _ in range(12)]
+        # First it tries B a few times...
+        assert "B" in actions[:9]
+        # ...then gives up on the phantom and stops pressing B
+        assert agent._phantom_menu
+        assert actions[-1] != "B"
+
+    def test_phantom_clears_when_state_changes(self, mock_llm_provider, mock_pyboy):
+        from unittest.mock import Mock
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        for _ in range(12):
+            agent.get_action()
+        assert agent._phantom_menu
+        agent.game_state.get_game_info = Mock(return_value={
+            "screen_text": "", "frame_count": 101, "game_state": "overworld",
+            "party": [{"species": 1, "level": 6}], "player_position": (2, 6),
+            "current_map": {"map_id": 0x26, "map_name": "Red's House 2F"},
+        })
+        agent.get_action()
+        assert not agent._phantom_menu
