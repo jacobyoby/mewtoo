@@ -29,3 +29,4 @@ not a decision gap.
 | 11 | Every bedroom step logged "dialog" with no text box on screen | the Oak-cutscene fix keyed on OCR text length > 10; the bedroom wallpaper OCRs as ~40 chars of garbage every frame | dialog = detect_text_box() pixels only |
 | 12 | Still "dialog" everywhere after #11 | the "ALWAYS validate overworld" block re-added dialog via detect_dialog_box_visually(), which reads the wallpaper as a text box | all 8 classification call sites -> detect_text_box() |
 | 13 | Outdoors in Pallet Town, every step "dialog" again | text-box detector keyed on brightness alone; outdoor ground tiles are 67% white | add mid-tone test: box 3% mid-greys vs tiles 28% |
+| 14 | Reaches Oak's Lab, stalls at the ball table, never gets a starter | game rule, not a bug: the balls are untakeable until Oak's cutscene fires, which requires trying to leave Pallet Town north to Route 1 | get_starter leaves the lab until Route 1 (0x0B) has been visited |

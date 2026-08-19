@@ -54,7 +54,8 @@ class AgentStrategy:
         self.recent_events: deque = deque(maxlen=max_recent_events)
         self.exploration_rate = max(0.0, min(1.0, exploration_rate))  # Clamp between 0 and 1
         self.step_count = 0
-        
+        self.visited_maps: set[int] = set()  # Map IDs seen this run
+
         # Initialize default goals
         self._initialize_default_goals()
     
@@ -122,6 +123,11 @@ class AgentStrategy:
             game_state: Current game state string
             memory_data: Optional memory data for more accurate phase detection
         """
+        if memory_data:
+            map_id = (memory_data.get("current_map") or {}).get("map_id")
+            if map_id is not None:
+                self.visited_maps.add(map_id)
+
         if game_state == "title_screen":
             self.current_phase = GamePhase.TITLE_SCREEN
         elif game_state == "battle":
@@ -201,7 +207,15 @@ class AgentStrategy:
                     return "DOWN"
                 elif map_id == 0x00:  # Pallet Town: north edge triggers Oak
                     return "UP"
-                elif map_id == 0x28:  # Oak's Lab: ball table is up-right
+                elif map_id == 0x28:  # Oak's Lab
+                    # The balls cannot be taken until Oak's cutscene fires,
+                    # and that only happens when the player tries to leave
+                    # Pallet Town to the north (Route 1). Entering the lab
+                    # early is a dead end -- runs reached the table row and
+                    # stalled there. Leave and go north until Route 1 has
+                    # been seen; only then approach the table.
+                    if 0x0B not in self.visited_maps:
+                        return "DOWN"  # Exit the lab (door is at the south)
                     if y > 4:
                         return "UP"
                     elif x < 6:
