@@ -1,4 +1,5 @@
 """Configuration helper for Mewtwo."""
+
 import logging
 import os
 from pathlib import Path
@@ -11,10 +12,10 @@ logger = logging.getLogger(__name__)
 
 class Config:
     """Configuration manager for Mewtwo."""
-    
+
     def __init__(self, config_path: str | None = None):
         """Initialize configuration.
-        
+
         Args:
             config_path: Path to config.yaml file (default: config.yaml in project root)
         """
@@ -22,16 +23,16 @@ class Config:
             config_path = Path(__file__).parent / "config.yaml"
         else:
             config_path = Path(config_path)
-        
+
         self.config_path = config_path
         self.config: dict[str, Any] = {}
         self.load_config()
-    
+
     def load_config(self):
         """Load configuration from YAML file."""
         if self.config_path.exists():
             try:
-                with open(self.config_path, encoding='utf-8') as f:
+                with open(self.config_path, encoding="utf-8") as f:
                     self.config = yaml.safe_load(f) or {}
             except Exception as e:
                 logger.warning(f"Could not load config file: {e}")
@@ -39,7 +40,7 @@ class Config:
         else:
             # Use defaults if config file doesn't exist
             self.config = self._get_defaults()
-    
+
     def _get_defaults(self) -> dict[str, Any]:
         """Get default configuration values."""
         return {
@@ -83,18 +84,18 @@ class Config:
                 "headless": False,
             },
         }
-    
+
     def get(self, key_path: str, default: Any = None) -> Any:
         """Get configuration value using dot notation.
-        
+
         Args:
             key_path: Dot-separated path (e.g., "agent.max_history")
             default: Default value if key not found
-        
+
         Returns:
             Configuration value or default
         """
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         value = self.config
         for key in keys:
             if isinstance(value, dict):
@@ -104,132 +105,132 @@ class Config:
             else:
                 return default
         return value if value is not None else default
-    
+
     def set(self, key_path: str, value: Any):
         """Set configuration value using dot notation.
-        
+
         Args:
             key_path: Dot-separated path (e.g., "agent.max_history")
             value: Value to set
         """
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         config = self.config
         for key in keys[:-1]:
             if key not in config:
                 config[key] = {}
             config = config[key]
         config[keys[-1]] = value
-    
+
     def save(self):
         """Save configuration to YAML file."""
         try:
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 yaml.dump(self.config, f, default_flow_style=False, sort_keys=False)
         except Exception as e:
             logger.warning(f"Could not save config file: {e}")
-    
+
     def get_agent_config(self) -> dict[str, Any]:
         """Get agent configuration."""
         return self.config.get("agent", {})
-    
+
     def get_strategy_config(self) -> dict[str, Any]:
         """Get strategy configuration."""
         return self.config.get("strategy", {})
-    
+
     def get_llm_config(self) -> dict[str, Any]:
         """Get LLM configuration."""
         return self.config.get("llm", {})
-    
+
     def get_ocr_config(self) -> dict[str, Any]:
         """Get OCR configuration."""
         return self.config.get("ocr", {})
-    
+
     def get_memory_config(self) -> dict[str, Any]:
         """Get memory configuration."""
         return self.config.get("memory", {})
-    
+
     def get_performance_config(self) -> dict[str, Any]:
         """Get performance configuration."""
         return self.config.get("performance", {})
-    
+
     def get_logging_config(self) -> dict[str, Any]:
         """Get logging configuration."""
         return self.config.get("logging", {})
-    
+
     def get_game_config(self) -> dict[str, Any]:
         """Get game configuration."""
         return self.config.get("game", {})
-    
+
     def get_active_profile(self) -> str:
         """Get the name of the active profile.
-        
+
         Returns:
             Profile name (default: "balanced")
         """
         return self.config.get("active_profile", "balanced")
-    
+
     def get_profile(self, profile_name: str | None = None) -> dict[str, Any]:
         """Get profile configuration.
-        
+
         Args:
             profile_name: Profile name (default: uses active_profile)
-        
+
         Returns:
             Profile configuration dict or empty dict if not found
         """
         if profile_name is None:
             profile_name = self.get_active_profile()
-        
+
         profiles = self.config.get("profiles", {})
         return profiles.get(profile_name, {})
-    
+
     def list_profiles(self) -> list[str]:
         """List all available profile names.
-        
+
         Returns:
             List of profile names
         """
         profiles = self.config.get("profiles", {})
         return list(profiles.keys())
-    
+
     def apply_profile(self, profile_name: str | None = None) -> dict[str, Any]:
         """Apply profile settings, overriding defaults.
-        
+
         Args:
             profile_name: Profile name (default: uses active_profile)
-        
+
         Returns:
             Dictionary of applied settings
         """
         profile = self.get_profile(profile_name)
         if not profile:
             return {}
-        
+
         applied = {}
-        
+
         # Apply strategy settings
         if "exploration_rate" in profile:
             self.set("strategy.exploration_rate", profile["exploration_rate"])
             applied["exploration_rate"] = profile["exploration_rate"]
-        
+
         if "goal_check_interval" in profile:
             self.set("agent.goal_check_interval", profile["goal_check_interval"])
             applied["goal_check_interval"] = profile["goal_check_interval"]
-        
+
         # Apply LLM settings
         if "max_tokens" in profile:
             self.set("llm.max_tokens", profile["max_tokens"])
             applied["max_tokens"] = profile["max_tokens"]
-        
+
         # Apply performance settings
         if "cache_max_size" in profile:
             self.set("performance.cache_max_size", profile["cache_max_size"])
             applied["cache_max_size"] = profile["cache_max_size"]
-        
+
         if "frames_per_step" in profile:
             self.set("performance.frames_per_step", profile["frames_per_step"])
             applied["frames_per_step"] = profile["frames_per_step"]
-        
+
         return applied
 
 
@@ -239,10 +240,10 @@ _config_instance: Config | None = None
 
 def get_config(config_path: str | None = None) -> Config:
     """Get global configuration instance.
-    
+
     Args:
         config_path: Optional path to config file
-    
+
     Returns:
         Config instance
     """
@@ -255,15 +256,15 @@ def get_config(config_path: str | None = None) -> Config:
 def setup_tesseract():
     """Setup Tesseract OCR path if needed."""
     import pytesseract
-    
+
     # Check if Tesseract path is set in environment
     tesseract_cmd = os.getenv("TESSERACT_CMD")
     if tesseract_cmd:
         pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
         return
-    
+
     # Try common Windows paths
-    if os.name == 'nt':
+    if os.name == "nt":
         common_paths = [
             r"C:\Program Files\Tesseract-OCR\tesseract.exe",
             r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
@@ -276,9 +277,11 @@ def setup_tesseract():
     # macOS/Linux: Homebrew and common install locations are frequently not
     # on the invoking process's PATH — the agent then runs fully text-blind
     # while pytesseract raises TesseractNotFoundError on every OCR call
-    for path in ("/opt/homebrew/bin/tesseract", "/usr/local/bin/tesseract",
-                 "/usr/bin/tesseract"):
+    for path in (
+        "/opt/homebrew/bin/tesseract",
+        "/usr/local/bin/tesseract",
+        "/usr/bin/tesseract",
+    ):
         if Path(path).exists():
             pytesseract.pytesseract.tesseract_cmd = path
             return
-

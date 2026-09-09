@@ -45,19 +45,15 @@ markers = [
 ]
 
 [tool.ruff]
-line-length = 100
+line-length = 88
 target-version = "py310"
 
 [tool.ruff.lint]
-# Start pragmatic: correctness + import hygiene + modern-idiom upgrades.
-select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes
-    "I",   # isort
-    "UP",  # pyupgrade (modern idioms)
-    "B",   # bugbear
-]
+# Jacobrakai house set (nodary): correctness, warnings, imports, upgrades,
+# bugbear, and flake8-simplify. E501 stays ignored for legacy prose comments.
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 ignore = [
+    "SIM108",  # ternaries are not always clearer
     "E501",  # long lines: legacy prose comments; revisit after refactor passes
 ]
 

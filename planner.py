@@ -12,6 +12,7 @@ fast lane stays fast while inheriting long-term direction.
 Planner output is plain text (2-4 sentences). Reasoning-model preambles
 (<think>...</think> blocks, e.g. from qwen3) are stripped before use.
 """
+
 import logging
 import re
 import time
@@ -36,8 +37,14 @@ _THINK_RE = re.compile(r"<think>.*?(?:</think>|\Z)", re.DOTALL)
 class PlannerAgent:
     """Slow-cadence strategy planner feeding directives to the fast actor."""
 
-    def __init__(self, llm_provider: LLMProvider, interval: int = 25,
-                 min_gap: int = 10, max_tokens: int = 700, metrics=None):
+    def __init__(
+        self,
+        llm_provider: LLMProvider,
+        interval: int = 25,
+        min_gap: int = 10,
+        max_tokens: int = 700,
+        metrics=None,
+    ):
         """Initialize the planner.
 
         Args:
@@ -62,23 +69,33 @@ class PlannerAgent:
         self._last_map_id: int | None = None
         self._last_completed_count = 0
 
-    def _should_plan(self, step_count: int, game_info: dict,
-                     stuck_count: int, completed_goals: int) -> str | None:
+    def _should_plan(
+        self, step_count: int, game_info: dict, stuck_count: int, completed_goals: int
+    ) -> str | None:
         """Return the trigger reason if a plan is due, else None."""
-        map_id = (game_info.get('current_map') or {}).get('map_id')
+        map_id = (game_info.get("current_map") or {}).get("map_id")
 
         # Rate limit: never plan twice within min_gap steps
-        if self.last_plan_step is not None and step_count - self.last_plan_step < self.min_gap:
+        if (
+            self.last_plan_step is not None
+            and step_count - self.last_plan_step < self.min_gap
+        ):
             # Still record trigger state so a suppressed event doesn't
             # re-fire forever once the gap opens
             if map_id is not None:
                 self._last_map_id = map_id
-            self._last_completed_count = max(self._last_completed_count, completed_goals)
+            self._last_completed_count = max(
+                self._last_completed_count, completed_goals
+            )
             return None
 
         if self.last_plan_step is None:
             return "initial"
-        if map_id is not None and self._last_map_id is not None and map_id != self._last_map_id:
+        if (
+            map_id is not None
+            and self._last_map_id is not None
+            and map_id != self._last_map_id
+        ):
             return "map_change"
         if completed_goals > self._last_completed_count:
             return "goal_completed"
@@ -88,8 +105,14 @@ class PlannerAgent:
             return "interval"
         return None
 
-    def maybe_plan(self, step_count: int, game_info: dict, stuck_count: int = 0,
-                   strategy_summary: str = "", completed_goals: int = 0) -> str | None:
+    def maybe_plan(
+        self,
+        step_count: int,
+        game_info: dict,
+        stuck_count: int = 0,
+        strategy_summary: str = "",
+        completed_goals: int = 0,
+    ) -> str | None:
         """Produce a new plan if one is due; return the current plan either way.
 
         Never raises: a planner failure logs a warning and the actor keeps
@@ -99,8 +122,9 @@ class PlannerAgent:
         if reason is None:
             return self.current_plan
 
-        prompt = self._build_prompt(step_count, game_info, stuck_count,
-                                    strategy_summary, reason)
+        prompt = self._build_prompt(
+            step_count, game_info, stuck_count, strategy_summary, reason
+        )
         try:
             start = time.time()
             raw = self.llm_provider.generate(
@@ -113,42 +137,54 @@ class PlannerAgent:
                 self.current_plan = plan
                 logger.info(f"[PLANNER] Step {step_count} ({reason}): {plan}")
             else:
-                logger.warning(f"[PLANNER] Step {step_count} ({reason}): empty plan after cleaning, keeping previous")
+                logger.warning(
+                    f"[PLANNER] Step {step_count} ({reason}): empty plan after cleaning, keeping previous"
+                )
             logger.debug(f"[PLANNER] call took {time.time() - start:.1f}s")
         except Exception as e:
-            logger.warning(f"[PLANNER] Planning failed ({reason}): {e}; keeping previous plan")
+            logger.warning(
+                f"[PLANNER] Planning failed ({reason}): {e}; keeping previous plan"
+            )
 
         # Mark the attempt even on failure so errors don't retry every step
         self.last_plan_step = step_count
-        map_id = (game_info.get('current_map') or {}).get('map_id')
+        map_id = (game_info.get("current_map") or {}).get("map_id")
         if map_id is not None:
             self._last_map_id = map_id
         self._last_completed_count = completed_goals
         return self.current_plan
 
-    def _build_prompt(self, step_count: int, game_info: dict, stuck_count: int,
-                      strategy_summary: str, reason: str) -> str:
-        map_info = game_info.get('current_map') or {}
-        party = game_info.get('party') or []
+    def _build_prompt(
+        self,
+        step_count: int,
+        game_info: dict,
+        stuck_count: int,
+        strategy_summary: str,
+        reason: str,
+    ) -> str:
+        map_info = game_info.get("current_map") or {}
+        party = game_info.get("party") or []
         parts = [
             f"Step {step_count}. Planning trigger: {reason}.",
             f"Game state: {game_info.get('game_state', 'unknown')}.",
         ]
-        if map_info.get('map_name'):
+        if map_info.get("map_name"):
             parts.append(f"Location: {map_info['map_name']}.")
-        pos = game_info.get('player_position')
+        pos = game_info.get("player_position")
         if pos:
             parts.append(f"Position: {pos}.")
         if party:
             lead = party[0]
-            parts.append(f"Party: {len(party)} Pokemon, lead level {lead.get('level', '?')}.")
+            parts.append(
+                f"Party: {len(party)} Pokemon, lead level {lead.get('level', '?')}."
+            )
         else:
             parts.append("Party: empty (starter not obtained yet).")
         if stuck_count:
             parts.append(f"Actor has been stuck for {stuck_count} steps.")
         if strategy_summary:
             parts.append(f"Progress: {strategy_summary}")
-        screen_text = (game_info.get('screen_text') or "").strip()
+        screen_text = (game_info.get("screen_text") or "").strip()
         if screen_text:
             parts.append(f"Screen text: {screen_text[:150]}")
         parts.append("Give the directive.")

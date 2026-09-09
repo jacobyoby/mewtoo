@@ -35,10 +35,10 @@ Based on research and analysis of game AI agents, here are best practices for ha
 ```python
 # Combine multiple signals for robust stuck detection
 stuck_signals = {
-    'state_key_same': last_state_key == current_state_key,
-    'position_unchanged': position == last_position and action in MOVEMENT_ACTIONS,
-    'action_repetition': action_count(action, last_n=10) > threshold,
-    'no_progress': no_goal_progress_for_n_steps > threshold
+    "state_key_same": last_state_key == current_state_key,
+    "position_unchanged": position == last_position and action in MOVEMENT_ACTIONS,
+    "action_repetition": action_count(action, last_n=10) > threshold,
+    "no_progress": no_goal_progress_for_n_steps > threshold,
 }
 
 is_stuck = sum(stuck_signals.values()) >= 2  # Require multiple signals

@@ -9,6 +9,7 @@ north from every column and record which map each attempt lands on.
 Usage:
     python scripts/probe_pallet_exit.py --rom roms/pokemon_red.gb
 """
+
 import argparse
 import sys
 from pathlib import Path

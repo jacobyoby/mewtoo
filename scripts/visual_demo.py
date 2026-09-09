@@ -1,13 +1,14 @@
 """Visual demonstration of Mewtwo without needing a ROM."""
+
 import random
 import time
 
 
 class MockGameState:
     """Mock game state for demonstration."""
-    
+
     BUTTONS = ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "START", "SELECT"]
-    
+
     def __init__(self):
         self.frame_count = 0
         self.scenarios = [
@@ -21,18 +22,18 @@ class MockGameState:
             "You won the battle!",
         ]
         self.current_scenario = 0
-    
+
     def get_game_info(self) -> dict:
         """Get mock game information."""
         self.frame_count += 1
         scenario = self.scenarios[self.current_scenario % len(self.scenarios)]
         self.current_scenario += random.randint(1, 3)
-        
+
         return {
             "screen_text": scenario,
             "frame_count": self.frame_count,
         }
-    
+
     def execute_action(self, action: str) -> bool:
         """Simulate action execution."""
         return action.upper() in self.BUTTONS or action.upper().startswith("WAIT")
@@ -40,7 +41,7 @@ class MockGameState:
 
 class MockLLMProvider:
     """Mock LLM provider that simulates AI decision making."""
-    
+
     def __init__(self):
         self.responses = [
             "A",  # Confirm/interact
@@ -53,7 +54,7 @@ class MockLLMProvider:
             "LEFT, A",  # Move left and interact
         ]
         self.index = 0
-    
+
     def generate(self, prompt: str, system_prompt: str = None) -> str:
         """Generate a mock response."""
         # Extract context from prompt
@@ -67,7 +68,7 @@ class MockLLMProvider:
             return "A"  # Interact
         elif "talking" in prompt.lower():
             return "A"  # Continue dialogue
-        
+
         # Cycle through responses
         response = self.responses[self.index % len(self.responses)]
         self.index += 1
@@ -86,7 +87,7 @@ def print_game_screen(text: str, frame: int):
     print("┌" + "─" * 68 + "┐")
     print("│" + " " * 20 + "GAME BOY SCREEN" + " " * 33 + "│")
     print("├" + "─" * 68 + "┤")
-    lines = text.split('\n')
+    lines = text.split("\n")
     for line in lines[:4]:  # Show max 4 lines
         padded = line[:66].ljust(66)
         print(f"│ {padded} │")
@@ -100,51 +101,51 @@ def print_game_screen(text: str, frame: int):
 def main():
     """Run the visual demo."""
     print_banner()
-    
+
     print("This demo simulates how Mewtwo works!")
     print("In the real version, it would:")
     print("  • Load a Pokemon Red ROM using PyBoy emulator")
     print("  • Extract game state using OCR (Tesseract)")
     print("  • Use an LLM (Ollama or Claude) to decide actions")
     print("  • Execute actions by pressing Game Boy buttons\n")
-    
+
     input("Press Enter to start the demo...")
-    
+
     # Initialize mock components
     game_state = MockGameState()
     llm_provider = MockLLMProvider()
-    
+
     print("\n" + "=" * 70)
     print("Starting Pokemon Red gameplay simulation...")
     print("=" * 70 + "\n")
-    
+
     # Simulate gameplay
     for step in range(10):
         print(f"\n{'─' * 70}")
         print(f"Step {step + 1}/10")
         print(f"{'─' * 70}\n")
-        
+
         # Get game state
         game_info = game_state.get_game_info()
-        print_game_screen(game_info['screen_text'], game_info['frame_count'])
-        
+        print_game_screen(game_info["screen_text"], game_info["frame_count"])
+
         # Simulate LLM thinking
         print("\nAI Agent thinking...")
         time.sleep(0.8)
-        
+
         # Get action from LLM
         prompt = f"Current state: {game_info['screen_text']}"
         action = llm_provider.generate(prompt)
-        
+
         print(f"AI Decision: '{action}'")
         time.sleep(0.5)
-        
+
         # Execute action
         success = game_state.execute_action(action)
         print(f"Action executed: {success}")
-        
+
         time.sleep(1)
-    
+
     print("\n" + "=" * 70)
     print("Demo complete!")
     print("=" * 70)
@@ -165,6 +166,5 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\nError: {e}")
         import traceback
+
         traceback.print_exc()
-
-

@@ -9,6 +9,7 @@ then saving that point for the agent to start from.
 Controls: arrow keys, A = a, B = s, START = enter, SELECT = backspace.
 Press Z in the window to write the save state, then close the window.
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -22,8 +23,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--rom", required=True)
     parser.add_argument("--load-state", default=None)
-    parser.add_argument("--save-to", default=None,
-                        help="Where Z writes the state (default: <rom>.state)")
+    parser.add_argument(
+        "--save-to",
+        default=None,
+        help="Where Z writes the state (default: <rom>.state)",
+    )
     args = parser.parse_args()
 
     pyboy = PyBoy(args.rom, window="SDL2")

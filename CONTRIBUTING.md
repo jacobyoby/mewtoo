@@ -21,7 +21,8 @@ Thank you for your interest in contributing to Mewtoo! This document provides gu
 ## Development Guidelines
 
 ### Code Style
-- Follow PEP 8 style guidelines
+- Follow the Jacobrakai house lint/format standard: `ruff format . && ruff check .`
+  (config lives in `pyproject.toml`; CI treats warnings as errors)
 - Use meaningful variable and function names
 - Add docstrings to functions and classes
 - Keep functions focused and small

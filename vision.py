@@ -12,6 +12,7 @@ A multimodal model can just look. Vision is far too slow to run per step
 (~7s per call vs ~1s for a text action), so it runs only when the agent
 is genuinely stuck, and answers one narrow question: which way is open.
 """
+
 import base64
 import io
 import logging
@@ -37,8 +38,14 @@ Answer with EXACTLY one word: UP, DOWN, LEFT, or RIGHT."""
 class VisionAdvisor:
     """Asks a multimodal model which way is open when the agent is stuck."""
 
-    def __init__(self, model: str = "gemma3:4b", scale: int = 3,
-                 cooldown_steps: int = 12, timeout: int = 45, metrics=None):
+    def __init__(
+        self,
+        model: str = "gemma3:4b",
+        scale: int = 3,
+        cooldown_steps: int = 12,
+        timeout: int = 45,
+        metrics=None,
+    ):
         """Initialize the advisor.
 
         Args:
@@ -62,15 +69,19 @@ class VisionAdvisor:
 
     def _encode(self, screen_image: np.ndarray) -> str:
         img = Image.fromarray(np.asarray(screen_image)[:, :, :3].astype("uint8"))
-        img = img.resize((img.width * self.scale, img.height * self.scale), Image.NEAREST)
+        img = img.resize(
+            (img.width * self.scale, img.height * self.scale), Image.NEAREST
+        )
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         return base64.b64encode(buf.getvalue()).decode()
 
     def is_ready(self, step_count: int) -> bool:
         """True when enough steps have passed since the last call."""
-        return (self.last_call_step is None
-                or step_count - self.last_call_step >= self.cooldown_steps)
+        return (
+            self.last_call_step is None
+            or step_count - self.last_call_step >= self.cooldown_steps
+        )
 
     @staticmethod
     def _parse_direction(text: str) -> str | None:
@@ -94,7 +105,9 @@ class VisionAdvisor:
     # forever, so the advisor retires itself when it repeats.
     MAX_IDENTICAL_ANSWERS = 4
 
-    def suggest_direction(self, screen_image: np.ndarray, step_count: int) -> str | None:
+    def suggest_direction(
+        self, screen_image: np.ndarray, step_count: int
+    ) -> str | None:
         """Ask which way is open. Returns a direction, or None on any failure.
 
         Never raises: vision is an enhancement, and a failed look must not
@@ -107,11 +120,13 @@ class VisionAdvisor:
             start = time.time()
             response = self.client.chat(
                 model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": NAV_PROMPT,
-                    "images": [self._encode(screen_image)],
-                }],
+                messages=[
+                    {
+                        "role": "user",
+                        "content": NAV_PROMPT,
+                        "images": [self._encode(screen_image)],
+                    }
+                ],
                 options={"num_predict": 12, "temperature": 0.2},
             )
             text = response["message"]["content"]
@@ -129,13 +144,18 @@ class VisionAdvisor:
                         f"[VISION] Step {step_count}: answered {direction} "
                         f"{self._repeat_count + 1} times in a row -- the model is "
                         f"defaulting rather than reading the screen; disabling "
-                        f"visual navigation for this run")
+                        f"visual navigation for this run"
+                    )
                     return None
-                logger.info(f"[VISION] Step {step_count}: looked at the screen "
-                            f"({elapsed:.1f}s) -> go {direction}")
+                logger.info(
+                    f"[VISION] Step {step_count}: looked at the screen "
+                    f"({elapsed:.1f}s) -> go {direction}"
+                )
             else:
-                logger.info(f"[VISION] Step {step_count}: no direction in reply "
-                            f"({elapsed:.1f}s): {text.strip()[:60]!r}")
+                logger.info(
+                    f"[VISION] Step {step_count}: no direction in reply "
+                    f"({elapsed:.1f}s): {text.strip()[:60]!r}"
+                )
             if self.metrics:
                 self.metrics.llm.record_call(elapsed)
             return direction
