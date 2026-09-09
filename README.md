@@ -366,6 +366,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Support
 
+[Donate / Support Jacobrakai Foundation — JACOBRAKAI FOUNDATION 501(c)(3)](https://donate.stripe.com/eVq4gy97DanS9h60phfrW00)
+
+JACOBRAKAI FOUNDATION is a 501(c)(3) public charity (EIN 33-3382083), effective February 11, 2025.
+
 - [Quick Start Guide](QUICKSTART.md) - Get started quickly
 - [Documentation](docs/) - Comprehensive guides
 - [Report a Bug](.github/ISSUE_TEMPLATE/bug_report.md) - Found a bug?
