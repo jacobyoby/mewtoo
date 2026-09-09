@@ -368,7 +368,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 [Donate / Support Jacobrakai Foundation — JACOBRAKAI FOUNDATION 501(c)(3)](https://donate.stripe.com/eVq4gy97DanS9h60phfrW00)
 
-JACOBRAKAI FOUNDATION is a 501(c)(3) public charity (EIN 33-3382083), effective February 11, 2025.
+JACOBRAKAI FOUNDATION / Jacobrakai Foundation (EIN 33-3382083) is a 501(c)(3) public charity under 170(b)(1)(A)(vi), effective February 11, 2025. IRS Letter 947 dated September 3, 2026.
 
 - [Quick Start Guide](QUICKSTART.md) - Get started quickly
 - [Documentation](docs/) - Comprehensive guides
