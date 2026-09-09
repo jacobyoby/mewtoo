@@ -1,4 +1,5 @@
 """Regression tests for Gen 1 text-box detection (profiles from real frames)."""
+
 from unittest.mock import Mock
 
 import numpy as np
@@ -9,12 +10,12 @@ from game_state import GameState
 def panel(white_frac, mid_frac):
     """Build a 144x160 frame whose bottom 40% matches the given profile."""
     img = np.zeros((144, 160, 3), dtype=np.uint8)
-    bottom = img[int(144 * 0.60):]
+    bottom = img[int(144 * 0.60) :]
     rows = bottom.shape[0]
     n_white = int(rows * white_frac)
     n_mid = int(rows * mid_frac)
-    bottom[:n_white] = 255                      # flat white
-    bottom[n_white:n_white + n_mid] = 128       # dithered mid-tone
+    bottom[:n_white] = 255  # flat white
+    bottom[n_white : n_white + n_mid] = 128  # dithered mid-tone
     return img
 
 
@@ -50,6 +51,7 @@ class TestDirectionalHold:
 
     def test_directional_press_uses_single_step_hold(self):
         from unittest.mock import Mock
+
         gs = GameState.__new__(GameState)
         gs.pyboy = Mock()
         gs.BUTTONS = GameState.BUTTONS
@@ -59,6 +61,7 @@ class TestDirectionalHold:
 
     def test_action_buttons_keep_the_short_tap(self):
         from unittest.mock import Mock
+
         gs = GameState.__new__(GameState)
         gs.pyboy = Mock()
         gs.BUTTONS = GameState.BUTTONS

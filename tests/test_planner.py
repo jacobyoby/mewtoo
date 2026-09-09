@@ -1,11 +1,15 @@
 """Unit tests for the two-tier planner."""
+
 from unittest.mock import Mock
 
 from planner import PlannerAgent
 
 
-def make_planner(response="Head north to Viridian City. Avoid pressing B in menus.",
-                 interval=25, min_gap=10):
+def make_planner(
+    response="Head north to Viridian City. Avoid pressing B in menus.",
+    interval=25,
+    min_gap=10,
+):
     provider = Mock()
     provider.generate = Mock(return_value=response)
     return PlannerAgent(provider, interval=interval, min_gap=min_gap), provider
@@ -125,14 +129,16 @@ class TestAgentIntegration:
         game_state = GameState(mock_pyboy, ocr_enabled=False)
         agent = PokemonAgent(mock_llm_provider, game_state, planner=planner)
 
-        game_state.get_game_info = M(return_value={
-            "screen_text": "PALLET TOWN",
-            "frame_count": 100,
-            "game_state": "overworld",
-            "party": [],
-            "player_position": (5, 5),
-            "current_map": {"map_id": 0, "map_name": "Pallet Town"},
-        })
+        game_state.get_game_info = M(
+            return_value={
+                "screen_text": "PALLET TOWN",
+                "frame_count": 100,
+                "game_state": "overworld",
+                "party": [],
+                "player_position": (5, 5),
+                "current_map": {"map_id": 0, "map_name": "Pallet Town"},
+            }
+        )
 
         planner.maybe_plan(step_count=0, game_info=game_state.get_game_info())
         prompt = agent.get_prompt()
@@ -146,12 +152,14 @@ class TestAgentIntegration:
 
         game_state = GameState(mock_pyboy, ocr_enabled=False)
         agent = PokemonAgent(mock_llm_provider, game_state)
-        game_state.get_game_info = M(return_value={
-            "screen_text": "",
-            "frame_count": 100,
-            "game_state": "overworld",
-            "party": [],
-        })
+        game_state.get_game_info = M(
+            return_value={
+                "screen_text": "",
+                "frame_count": 100,
+                "game_state": "overworld",
+                "party": [],
+            }
+        )
         # No planner: step() must run without error
         result = agent.step()
         assert result["action"] is not None

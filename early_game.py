@@ -77,8 +77,9 @@ class EarlyGameHandler:
             return self.CONFIRM
         return None
 
-    def next_action(self, screen_text: str, game_state: str,
-                    party_size: int) -> str | None:
+    def next_action(
+        self, screen_text: str, game_state: str, party_size: int
+    ) -> str | None:
         """Return a scripted action for a recognized naming screen, or None.
 
         Args:

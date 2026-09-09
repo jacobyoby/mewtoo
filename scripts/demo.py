@@ -1,4 +1,5 @@
 """Demo script to show Mewtwo structure without needing a ROM."""
+
 import sys
 from pathlib import Path
 
@@ -18,24 +19,25 @@ def demo_llm_providers():
     print("Mewtwo - Demo")
     print("=" * 60)
     print()
-    
+
     load_dotenv()
-    
+
     # Try Claude first if API key is available
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if api_key:
         print("Claude API key found!")
         print("  You can use: --llm-provider claude")
         print()
-    
+
     # Check Ollama
     try:
         import ollama
+
         client = ollama.Client()
         response = client.list()
         # Access models from ListResponse object
-        model_list = response.models if hasattr(response, 'models') else []
-        
+        model_list = response.models if hasattr(response, "models") else []
+
         if model_list:
             print("Ollama is installed and has models!")
             # Extract model names from Model objects
@@ -49,7 +51,7 @@ def demo_llm_providers():
         print("Warning: Ollama not available")
         print(f"  Error: {e}")
         print("  Install from: https://ollama.com")
-    
+
     print()
     print("=" * 60)
     print("To run the full agent, you need:")
@@ -61,6 +63,6 @@ def demo_llm_providers():
     print("  python main.py --rom pokemon_red.gb --steps 50 --display")
     print("=" * 60)
 
+
 if __name__ == "__main__":
     demo_llm_providers()
-

@@ -2,6 +2,7 @@
 
 Version: 0.0.7
 """
+
 import argparse
 import json
 import logging
@@ -23,7 +24,9 @@ from pokemon_agent import PokemonAgent
 from vision import VisionAdvisor
 
 
-def create_llm_provider(provider: str, model: str | None = None, config=None, metrics=None) -> LLMProvider:
+def create_llm_provider(
+    provider: str, model: str | None = None, config=None, metrics=None
+) -> LLMProvider:
     """Create LLM provider based on configuration.
 
     Args:
@@ -57,124 +60,112 @@ def build_parser(config) -> argparse.ArgumentParser:
     """Build the command-line argument parser."""
     parser = argparse.ArgumentParser(description="Mewtwo - AI Agent for Pokemon Red")
     parser.add_argument(
-        "--rom",
-        type=str,
-        required=True,
-        help="Path to Pokemon Red ROM file (.gb)"
+        "--rom", type=str, required=True, help="Path to Pokemon Red ROM file (.gb)"
     )
     parser.add_argument(
         "--steps",
         type=int,
         default=config.get("game.default_steps", 100),
-        help=f"Number of steps to run (default: {config.get('game.default_steps', 100)})"
+        help=f"Number of steps to run (default: {config.get('game.default_steps', 100)})",
     )
     parser.add_argument(
         "--llm-provider",
         type=str,
         default="ollama",
         choices=["ollama", "claude"],
-        help="LLM provider to use (default: ollama). Can also be configured in config.yaml"
+        help="LLM provider to use (default: ollama). Can also be configured in config.yaml",
     )
     parser.add_argument(
         "--model",
         type=str,
         default=None,
-        help=f"Model name (default: {config.get('llm.ollama_model', 'gemma3:4b')} for Ollama, {config.get('llm.claude_model', 'claude-sonnet-5')} for Claude)"
+        help=f"Model name (default: {config.get('llm.ollama_model', 'gemma3:4b')} for Ollama, {config.get('llm.claude_model', 'claude-sonnet-5')} for Claude)",
     )
+    parser.add_argument("--display", action="store_true", help="Enable display window")
+    parser.add_argument("--sound", action="store_true", help="Enable sound")
     parser.add_argument(
-        "--display",
-        action="store_true",
-        help="Enable display window"
-    )
-    parser.add_argument(
-        "--sound",
-        action="store_true",
-        help="Enable sound"
-    )
-    parser.add_argument(
-        "--headless",
-        action="store_true",
-        help="Run in headless mode (no display)"
+        "--headless", action="store_true", help="Run in headless mode (no display)"
     )
     parser.add_argument(
         "--no-ocr",
         action="store_true",
-        help="Disable OCR (much faster, but agent won't see screen text)"
+        help="Disable OCR (much faster, but agent won't see screen text)",
     )
     parser.add_argument(
         "--ocr-interval",
         type=int,
         default=config.get("ocr.interval", 50),
-        help=f"Run OCR every N frames (default: {config.get('ocr.interval', 50)}, higher = less frequent checks). Can also be configured in config.yaml"
+        help=f"Run OCR every N frames (default: {config.get('ocr.interval', 50)}, higher = less frequent checks). Can also be configured in config.yaml",
     )
     parser.add_argument(
         "--ocr-scale",
         type=int,
         default=config.get("ocr.scale_factor", 6),
-        help=f"OCR scale factor (default: {config.get('ocr.scale_factor', 6)}, higher = better OCR accuracy but slower). In headless mode, higher values (6-8) significantly improve OCR accuracy"
+        help=f"OCR scale factor (default: {config.get('ocr.scale_factor', 6)}, higher = better OCR accuracy but slower). In headless mode, higher values (6-8) significantly improve OCR accuracy",
     )
     parser.add_argument(
         "--memory-interval",
         type=int,
         default=config.get("memory.check_interval", 3),
-        help=f"Check memory every N steps (default: {config.get('memory.check_interval', 3)}, higher = less frequent checks). Can also be configured in config.yaml"
+        help=f"Check memory every N steps (default: {config.get('memory.check_interval', 3)}, higher = less frequent checks). Can also be configured in config.yaml",
     )
     parser.add_argument(
         "--goal-interval",
         type=int,
         default=config.get("agent.goal_check_interval", 5),
-        help=f"Check goal completion every N steps (default: {config.get('agent.goal_check_interval', 5)}, higher = less frequent checks). Can also be configured in config.yaml"
+        help=f"Check goal completion every N steps (default: {config.get('agent.goal_check_interval', 5)}, higher = less frequent checks). Can also be configured in config.yaml",
     )
     parser.add_argument(
         "--fast",
         action="store_true",
-        help="Fast mode: disable OCR and reduce LLM calls"
+        help="Fast mode: disable OCR and reduce LLM calls",
     )
     parser.add_argument(
         "--log",
         type=str,
         default=None,
-        help="Log file path (default: logs/pokemon_agent_YYYYMMDD_HHMMSS.json)"
+        help="Log file path (default: logs/pokemon_agent_YYYYMMDD_HHMMSS.json)",
     )
     parser.add_argument(
         "--log-dir",
         type=str,
         default="logs",
-        help="Directory for log files (default: logs)"
+        help="Directory for log files (default: logs)",
     )
     parser.add_argument(
         "--profile",
         type=str,
         default=None,
         choices=["aggressive", "conservative", "balanced"],
-        help="Strategy profile to use (aggressive, conservative, balanced). Overrides config.yaml active_profile."
+        help="Strategy profile to use (aggressive, conservative, balanced). Overrides config.yaml active_profile.",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
-        help="Show debug-level diagnostics (stuck details, screenshot skips)"
+        help="Show debug-level diagnostics (stuck details, screenshot skips)",
     )
     parser.add_argument(
         "--planner-model",
         type=str,
         default=None,
-        help=f"Model for the slow-lane strategy planner (default: {config.get('planner.model', 'qwen3:8b')}). Planner directives are injected into the fast actor's prompts."
+        help=f"Model for the slow-lane strategy planner (default: {config.get('planner.model', 'qwen3:8b')}). Planner directives are injected into the fast actor's prompts.",
     )
     parser.add_argument(
         "--no-planner",
         action="store_true",
-        help="Disable the two-tier planner (actor model only)"
+        help="Disable the two-tier planner (actor model only)",
     )
     parser.add_argument(
         "--no-vision",
         action="store_true",
-        help="Disable the multimodal stuck-time advisor (vision lets the agent see the screen when navigation stalls)"
+        help="Disable the multimodal stuck-time advisor (vision lets the agent see the screen when navigation stalls)",
     )
     parser.add_argument(
         "--vision-model",
         type=str,
         default=None,
-        help=f"Multimodal model for stuck-time navigation advice (default: {config.get('vision.model', 'gemma3:4b')})"
+        help=f"Multimodal model for stuck-time navigation advice (default: {config.get('vision.model', 'gemma3:4b')})",
     )
     parser.add_argument(
         "--load-state",
@@ -183,8 +174,8 @@ def build_parser(config) -> argparse.ArgumentParser:
         default=None,
         metavar="PATH",
         help="Boot from a PyBoy save state instead of a cold start. With no "
-             "PATH, uses <rom>.state (the file the in-window Z hotkey writes). "
-             "Skips boot/intro/naming entirely."
+        "PATH, uses <rom>.state (the file the in-window Z hotkey writes). "
+        "Skips boot/intro/naming entirely.",
     )
     return parser
 
@@ -210,7 +201,9 @@ def validate_rom(rom_arg: str) -> Path:
     if rom_arg == "..." or rom_arg.strip() == "":
         print("Error: Invalid ROM path provided.")
         print("Please provide the actual path to your ROM file.")
-        print("Example: python main.py --rom \"Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb\" --model llama3.2:1b --llm-provider ollama")
+        print(
+            'Example: python main.py --rom "Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb" --model llama3.2:1b --llm-provider ollama'
+        )
         sys.exit(1)
 
     if not rom_path.exists():
@@ -231,7 +224,7 @@ def validate_rom(rom_arg: str) -> Path:
 
     try:
         # Test file permissions
-        with open(rom_path, 'rb') as f:
+        with open(rom_path, "rb") as f:
             f.read(1)
     except PermissionError as e:
         print(f"Error: Permission denied accessing ROM file: {rom_arg}")
@@ -253,7 +246,11 @@ def resolve_state_path(rom_path: Path, args) -> Path | None:
     """Resolve --load-state to a real file, or None for a cold boot."""
     if not args.load_state:
         return None
-    state_path = Path(f"{rom_path}.state") if args.load_state == "auto" else Path(args.load_state)
+    state_path = (
+        Path(f"{rom_path}.state")
+        if args.load_state == "auto"
+        else Path(args.load_state)
+    )
     if not state_path.exists():
         print(f"Error: save state not found: {state_path}")
         print("Create one by pressing Z in the PyBoy window during a run.")
@@ -279,7 +276,9 @@ def init_pyboy(rom_path: Path, args) -> PyBoy:
         print(f"Details: {e}")
         print("\nPossible causes:")
         print("1. The ROM file is locked by another process")
-        print("2. PyBoy is trying to create/access a save state file (.gb.ram) that is locked")
+        print(
+            "2. PyBoy is trying to create/access a save state file (.gb.ram) that is locked"
+        )
         print("3. Insufficient file permissions")
         print("\nTry:")
         print("1. Close any other programs that might be using the ROM file")
@@ -309,7 +308,9 @@ def init_pyboy(rom_path: Path, args) -> PyBoy:
     return pyboy
 
 
-def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[PokemonAgent, int]:
+def build_agent(
+    pyboy: PyBoy, args, config, metrics: MetricsCollector
+) -> tuple[PokemonAgent, int]:
     """Build the LLM provider, game state, and agent.
 
     Returns:
@@ -317,7 +318,9 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
     """
     print(f"Initializing LLM provider: {args.llm_provider}")
     try:
-        llm_provider = create_llm_provider(args.llm_provider, args.model, config, metrics=metrics)
+        llm_provider = create_llm_provider(
+            args.llm_provider, args.model, config, metrics=metrics
+        )
     except Exception as e:
         print(f"Error initializing LLM provider: {e}")
         pyboy.stop()
@@ -332,9 +335,14 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
     perf_config = config.get_performance_config()
     frames_per_step = 1 if args.fast else perf_config.get("frames_per_step", 3)
 
-    game_state = GameState(pyboy, ocr_enabled=ocr_enabled, ocr_interval=ocr_interval,
-                           memory_check_interval=memory_interval, ocr_scale_factor=args.ocr_scale,
-                           metrics=metrics)
+    game_state = GameState(
+        pyboy,
+        ocr_enabled=ocr_enabled,
+        ocr_interval=ocr_interval,
+        memory_check_interval=memory_interval,
+        ocr_scale_factor=args.ocr_scale,
+        metrics=metrics,
+    )
 
     # Two-tier brain: a slower planner model whose directives are injected
     # into the fast actor's prompts. Ollama-only for now (local, free).
@@ -344,7 +352,8 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
         planner_model = args.planner_model or config.get("planner.model", "qwen3:8b")
         try:
             planner_provider = OllamaProvider(
-                model=planner_model, metrics=metrics,
+                model=planner_model,
+                metrics=metrics,
                 think=config.get("planner.think", False),
                 timeout=config.get("planner.timeout", 60),
             )
@@ -355,7 +364,9 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
                 max_tokens=config.get("planner.max_tokens", 700),
                 metrics=metrics,
             )
-            print(f"Planner enabled: {planner_provider.model} every ~{planner.interval} steps")
+            print(
+                f"Planner enabled: {planner_provider.model} every ~{planner.interval} steps"
+            )
         except Exception as e:
             print(f"Warning: planner disabled ({e})")
 
@@ -382,7 +393,7 @@ def build_agent(pyboy: PyBoy, args, config, metrics: MetricsCollector) -> tuple[
         goal_check_interval=goal_interval,
         metrics=metrics,
         planner=planner,
-        vision=vision
+        vision=vision,
     )
     return agent, frames_per_step
 
@@ -399,65 +410,69 @@ def make_log_path(args) -> Path:
 
 def build_step_log(step: int, result: dict) -> dict:
     """Assemble the JSON log record for one step."""
-    game_info = result['game_info']
+    game_info = result["game_info"]
     step_log = {
         "step": step + 1,
-        "action": result['action'],
-        "success": result['success'],
-        "frame_count": game_info['frame_count'],
-        "screen_text": game_info['screen_text'],
-        "game_state": game_info.get('game_state'),
-        "timestamp": datetime.now().isoformat()
+        "action": result["action"],
+        "success": result["success"],
+        "frame_count": game_info["frame_count"],
+        "screen_text": game_info["screen_text"],
+        "game_state": game_info.get("game_state"),
+        "timestamp": datetime.now().isoformat(),
     }
-    if result.get('progress'):
-        step_log["progress"] = result['progress']
-    if game_info.get('current_map'):
-        step_log["location"] = game_info['current_map'].get('map_name')
-    if game_info.get('player_position'):
-        step_log["position"] = game_info['player_position']
-    if game_info.get('party'):
-        step_log["party_size"] = len(game_info['party'])
-        step_log["first_pokemon_level"] = game_info['party'][0].get('level')
+    if result.get("progress"):
+        step_log["progress"] = result["progress"]
+    if game_info.get("current_map"):
+        step_log["location"] = game_info["current_map"].get("map_name")
+    if game_info.get("player_position"):
+        step_log["position"] = game_info["player_position"]
+    if game_info.get("party"):
+        step_log["party_size"] = len(game_info["party"])
+        step_log["first_pokemon_level"] = game_info["party"][0].get("level")
     return step_log
 
 
 def print_step_report(step: int, total_steps: int, result: dict) -> None:
     """Print the per-step console report."""
-    game_info = result['game_info']
+    game_info = result["game_info"]
     print(f"Step {step + 1}/{total_steps}")
     print(f"  Action: {result['action']}")
     print(f"  Success: {result['success']}")
-    if game_info.get('game_state'):
+    if game_info.get("game_state"):
         print(f"  Game State: {game_info['game_state']}")
 
-    if result.get('progress'):
-        progress = result['progress']
-        print(f"  Progress: {progress['completed_goals']}/{progress['total_goals']} goals "
-              f"({progress['progress_percent']:.1f}%)")
-        if progress['completed_goal_names']:
-            recent_completed = progress['completed_goal_names'][-3:]
+    if result.get("progress"):
+        progress = result["progress"]
+        print(
+            f"  Progress: {progress['completed_goals']}/{progress['total_goals']} goals "
+            f"({progress['progress_percent']:.1f}%)"
+        )
+        if progress["completed_goal_names"]:
+            recent_completed = progress["completed_goal_names"][-3:]
             print(f"  Recent Goals: {', '.join(recent_completed)}")
 
-    if game_info.get('current_map'):
-        map_name = game_info['current_map'].get('map_name')
-        if map_name and map_name != 'Unknown':
+    if game_info.get("current_map"):
+        map_name = game_info["current_map"].get("map_name")
+        if map_name and map_name != "Unknown":
             print(f"  Location: {map_name}")
-    pos = game_info.get('player_position')
+    pos = game_info.get("player_position")
     if pos and pos != (0, 0):
         print(f"  Position: ({pos[0]}, {pos[1]})")
-    party = game_info.get('party')
+    party = game_info.get("party")
     if party:
         print(f"  Party: {len(party)} Pokemon")
-        if party[0].get('level'):
-            print(f"  First Pokemon: Level {party[0]['level']}, "
-                  f"HP {party[0].get('hp_current', 0)}/{party[0].get('hp_max', 0)}")
+        if party[0].get("level"):
+            print(
+                f"  First Pokemon: Level {party[0]['level']}, "
+                f"HP {party[0].get('hp_current', 0)}/{party[0].get('hp_max', 0)}"
+            )
 
-    if result.get('state_changed') is False:
+    if result.get("state_changed") is False:
         print("  Warning: State unchanged - action may not have had effect")
-    if result.get('stuck_count', 0) > 3:
+    if result.get("stuck_count", 0) > 3:
         print(f"  Warning: Stuck for {result['stuck_count']} steps")
-    if game_info.get('screen_text'):
-        text_preview = game_info['screen_text'][:80].replace('\n', ' ')
+    if game_info.get("screen_text"):
+        text_preview = game_info["screen_text"][:80].replace("\n", " ")
         print(f"  Screen Text: {text_preview}...")
     print()
 
@@ -466,14 +481,21 @@ def sync_cache_metrics(agent: PokemonAgent, metrics: MetricsCollector) -> None:
     """Copy action-cache counters into the metrics collector."""
     if agent.action_cache:
         cache_stats = agent.action_cache.get_stats()
-        metrics.cache.hits = cache_stats['hits']
-        metrics.cache.misses = cache_stats['misses']
-        metrics.cache.evictions = cache_stats.get('evictions', 0)
-        metrics.cache.update_size(cache_stats['size'], cache_stats.get('max_size', 100))
+        metrics.cache.hits = cache_stats["hits"]
+        metrics.cache.misses = cache_stats["misses"]
+        metrics.cache.evictions = cache_stats.get("evictions", 0)
+        metrics.cache.update_size(cache_stats["size"], cache_stats.get("max_size", 100))
 
 
-def run_loop(agent: PokemonAgent, pyboy: PyBoy, args, metrics: MetricsCollector,
-             log_data: dict, log_path: Path, frames_per_step: int) -> None:
+def run_loop(
+    agent: PokemonAgent,
+    pyboy: PyBoy,
+    args,
+    metrics: MetricsCollector,
+    log_data: dict,
+    log_path: Path,
+    frames_per_step: int,
+) -> None:
     """Run the agent loop, logging and reporting each step."""
     for step in range(args.steps):
         result = agent.step()
@@ -482,7 +504,7 @@ def run_loop(agent: PokemonAgent, pyboy: PyBoy, args, metrics: MetricsCollector,
         sync_cache_metrics(agent, metrics)
 
         # Save log after each step (in case of crash)
-        with open(log_path, 'w', encoding='utf-8') as f:
+        with open(log_path, "w", encoding="utf-8") as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
 
         print_step_report(step, args.steps, result)
@@ -498,11 +520,13 @@ def print_final_progress(agent: PokemonAgent) -> None:
     print("\n" + "=" * 60)
     print("Final Progress Summary")
     print("=" * 60)
-    print(f"Completed Goals: {progress['completed_goals']}/{progress['total_goals']} "
-          f"({progress['progress_percent']:.1f}%)")
+    print(
+        f"Completed Goals: {progress['completed_goals']}/{progress['total_goals']} "
+        f"({progress['progress_percent']:.1f}%)"
+    )
     print(f"Current Phase: {progress['current_phase']}")
     print(f"Total Steps: {progress['step_count']}")
-    if progress['completed_goal_names']:
+    if progress["completed_goal_names"]:
         print(f"Completed: {', '.join(progress['completed_goal_names'])}")
     print("=" * 60)
 
@@ -540,7 +564,7 @@ def main():
         "ocr_enabled": ocr_enabled,
         "ocr_interval": 100 if args.fast else max(args.ocr_interval, 10),
         "start_time": datetime.now().isoformat(),
-        "steps_log": []
+        "steps_log": [],
     }
 
     print(f"Starting agent for {args.steps} steps...")
@@ -571,7 +595,7 @@ def main():
         log_data["metrics"] = metrics.get_all_stats()
         print("\n" + metrics.get_summary())
 
-        with open(log_path, 'w', encoding='utf-8') as f:
+        with open(log_path, "w", encoding="utf-8") as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
 
         print(f"\nLog saved to: {log_path}")

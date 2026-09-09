@@ -1,4 +1,5 @@
 """LLM Provider abstraction for Mewtwo."""
+
 import logging
 import threading
 import time
@@ -12,11 +13,13 @@ logger = logging.getLogger(__name__)
 
 class LLMProvider(ABC):
     """Abstract base class for LLM providers."""
-    
+
     @abstractmethod
-    def generate(self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10) -> str:
+    def generate(
+        self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10
+    ) -> str:
         """Generate a response from the LLM.
-        
+
         Args:
             prompt: User prompt
             system_prompt: System prompt
@@ -27,9 +30,14 @@ class LLMProvider(ABC):
 
 class OllamaProvider(LLMProvider):
     """Ollama provider for local LLM inference."""
-    
-    def __init__(self, model: str = "llama3.2", metrics=None,
-                 think: bool | None = None, timeout: int = 30):
+
+    def __init__(
+        self,
+        model: str = "llama3.2",
+        metrics=None,
+        think: bool | None = None,
+        timeout: int = 30,
+    ):
         """Initialize Ollama provider.
 
         Args:
@@ -45,15 +53,19 @@ class OllamaProvider(LLMProvider):
         self.metrics = metrics
         self.think = think
         self.timeout = timeout
-        
+
         # Validate model exists
         try:
             available_models = self._list_available_models()
             if model not in available_models:
                 # Check if there's a model with the same base name (before colon)
-                model_base = model.split(':')[0] if ':' in model else model
-                matching_models = [m for m in available_models if m.startswith(model_base + ':') or m == model_base]
-                
+                model_base = model.split(":")[0] if ":" in model else model
+                matching_models = [
+                    m
+                    for m in available_models
+                    if m.startswith(model_base + ":") or m == model_base
+                ]
+
                 if matching_models:
                     suggested = matching_models[0]
                     logger.warning(f"Model '{model}' not found in Ollama.")
@@ -76,52 +88,54 @@ class OllamaProvider(LLMProvider):
             if isinstance(e, ValueError):
                 raise
             logger.warning(f"Could not verify model availability: {e}")
-    
+
     def _call_with_timeout(self, func, timeout=30):
         """Call a function with timeout protection."""
         result = [None]
         exception = [None]
-        
+
         def target():
             try:
                 result[0] = func()
             except Exception as e:
                 exception[0] = e
-        
+
         thread = threading.Thread(target=target)
         thread.daemon = True
         thread.start()
         thread.join(timeout)
-        
+
         if thread.is_alive():
             raise TimeoutError(f"Function call timed out after {timeout} seconds")
-        
+
         if exception[0]:
             raise exception[0]
-        
+
         return result[0]
-    
+
     def _list_available_models(self) -> list[str]:
         """List available Ollama models."""
         try:
             response = self.client.list()
-            if hasattr(response, 'models'):
+            if hasattr(response, "models"):
                 return [m.model for m in response.models]
-            elif isinstance(response, dict) and 'models' in response:
-                return [m.get('model', m.get('name', '')) for m in response['models']]
+            elif isinstance(response, dict) and "models" in response:
+                return [m.get("model", m.get("name", "")) for m in response["models"]]
             else:
                 return []
         except Exception:
             return []
-    
-    def generate(self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10) -> str:
+
+    def generate(
+        self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10
+    ) -> str:
         """Generate a response using Ollama.
-        
+
         Args:
             prompt: User prompt
             system_prompt: System prompt
             max_tokens: Maximum tokens to generate (default: 10 for faster responses)
-        
+
         Raises:
             ValueError: If model is not found or other error occurs
         """
@@ -129,13 +143,13 @@ class OllamaProvider(LLMProvider):
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
-        
+
         # Use options to limit tokens for faster responses
         options = {
             "num_predict": max_tokens,  # Limit prediction length
             "temperature": 0.1,  # Lower temperature for more deterministic responses
         }
-        
+
         chat_kwargs = {"model": self.model, "messages": messages, "options": options}
         if self.think is not None:
             chat_kwargs["think"] = self.think
@@ -143,11 +157,10 @@ class OllamaProvider(LLMProvider):
         start_time = time.time()
         try:
             response = self._call_with_timeout(
-                lambda: self.client.chat(**chat_kwargs),
-                timeout=self.timeout
+                lambda: self.client.chat(**chat_kwargs), timeout=self.timeout
             )
             latency = time.time() - start_time
-            
+
             # Extract token count if available
             tokens = None
             if isinstance(response, dict):
@@ -155,18 +168,22 @@ class OllamaProvider(LLMProvider):
                 if "eval_count" in response:
                     tokens = response.get("eval_count")
                 elif "prompt_eval_count" in response and "eval_count" in response:
-                    tokens = response.get("prompt_eval_count", 0) + response.get("eval_count", 0)
-            
+                    tokens = response.get("prompt_eval_count", 0) + response.get(
+                        "eval_count", 0
+                    )
+
             # Record metrics
             if self.metrics:
                 self.metrics.llm.record_call(latency, tokens=tokens)
-            
+
             return response["message"]["content"]
         except TimeoutError:
             latency = time.time() - start_time
             if self.metrics:
                 self.metrics.llm.record_call(latency, timeout=True)
-            raise ValueError(f"LLM call timed out after {self.timeout} seconds. Model: {self.model}") from None
+            raise ValueError(
+                f"LLM call timed out after {self.timeout} seconds. Model: {self.model}"
+            ) from None
         except Exception as e:
             latency = time.time() - start_time
             if self.metrics:
@@ -184,10 +201,12 @@ class OllamaProvider(LLMProvider):
 
 class ClaudeProvider(LLMProvider):
     """Anthropic Claude provider for cloud-based inference."""
-    
-    def __init__(self, api_key: str | None = None, model: str = "claude-sonnet-5", metrics=None):
+
+    def __init__(
+        self, api_key: str | None = None, model: str = "claude-sonnet-5", metrics=None
+    ):
         """Initialize Claude provider.
-        
+
         Args:
             api_key: Anthropic API key (if None, reads from environment)
             model: Model name to use
@@ -197,10 +216,12 @@ class ClaudeProvider(LLMProvider):
         self.model = model
         self.client = anthropic.Anthropic(api_key=api_key)
         self.metrics = metrics
-    
-    def generate(self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10) -> str:
+
+    def generate(
+        self, prompt: str, system_prompt: str | None = None, max_tokens: int = 10
+    ) -> str:
         """Generate a response using Claude.
-        
+
         Args:
             prompt: User prompt
             system_prompt: System prompt
@@ -212,25 +233,24 @@ class ClaudeProvider(LLMProvider):
                 model=self.model,
                 max_tokens=max_tokens,  # Reduced from 4096 for faster responses
                 system=system_prompt or "",
-                messages=[{"role": "user", "content": prompt}]
+                messages=[{"role": "user", "content": prompt}],
             )
             latency = time.time() - start_time
-            
+
             # Extract token count from Claude response
             tokens = None
-            if hasattr(response, 'usage'):
+            if hasattr(response, "usage"):
                 usage = response.usage
-                if hasattr(usage, 'input_tokens') and hasattr(usage, 'output_tokens'):
+                if hasattr(usage, "input_tokens") and hasattr(usage, "output_tokens"):
                     tokens = usage.input_tokens + usage.output_tokens
-            
+
             # Record metrics
             if self.metrics:
                 self.metrics.llm.record_call(latency, tokens=tokens)
-            
+
             return response.content[0].text
         except Exception:
             latency = time.time() - start_time
             if self.metrics:
                 self.metrics.llm.record_call(latency, error=True)
             raise
-

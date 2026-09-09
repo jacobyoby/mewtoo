@@ -1,4 +1,5 @@
 """Test script for memory reader functionality."""
+
 import sys
 from pathlib import Path
 
@@ -15,24 +16,24 @@ def test_memory_reader(rom_path: str):
     print("=" * 60)
     print("Testing Memory Reader")
     print("=" * 60)
-    
+
     try:
         # Initialize PyBoy
         print(f"\nLoading ROM: {rom_path}")
         pyboy = PyBoy(rom_path, window="null", sound=False)
-        
+
         # Run a few frames to initialize game
         print("Initializing game (running 60 frames)...")
         for _ in range(60):
             pyboy.tick()
-        
+
         # Create memory reader
         memory_reader = MemoryReader(pyboy)
-        
+
         print("\n" + "=" * 60)
         print("Testing Memory Reading Functions")
         print("=" * 60)
-        
+
         # Test player position
         print("\n1. Player Position:")
         try:
@@ -40,7 +41,7 @@ def test_memory_reader(rom_path: str):
             print(f"   X: {x}, Y: {y}")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test current map
         print("\n2. Current Map:")
         try:
@@ -52,7 +53,7 @@ def test_memory_reader(rom_path: str):
             print(f"   Map Name: {map_name}")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test player name
         print("\n3. Player Name:")
         try:
@@ -60,41 +61,47 @@ def test_memory_reader(rom_path: str):
             print(f"   Name: '{name}'")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test party
         print("\n4. Pokemon Party:")
         try:
             party = memory_reader.read_pokemon_party()
             print(f"   Party Size: {len(party)}")
             for _i, pokemon in enumerate(party):
-                print(f"   Slot {pokemon['slot']}: Species {pokemon['species']}, "
-                      f"Level {pokemon['level']}, "
-                      f"HP {pokemon['hp_current']}/{pokemon['hp_max']} "
-                      f"({pokemon['hp_percent']:.1f}%)")
+                print(
+                    f"   Slot {pokemon['slot']}: Species {pokemon['species']}, "
+                    f"Level {pokemon['level']}, "
+                    f"HP {pokemon['hp_current']}/{pokemon['hp_max']} "
+                    f"({pokemon['hp_percent']:.1f}%)"
+                )
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test health
         print("\n5. Health/HP:")
         try:
             health = memory_reader.read_health_hp()
-            print(f"   Total HP: {health['total_hp']}/{health['total_max_hp']} "
-                  f"({health['total_hp_percent']:.1f}%)")
+            print(
+                f"   Total HP: {health['total_hp']}/{health['total_max_hp']} "
+                f"({health['total_hp_percent']:.1f}%)"
+            )
             print(f"   Fainted: {health['fainted_count']}/{health['party_size']}")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test inventory
         print("\n6. Inventory:")
         try:
             inventory = memory_reader.read_inventory()
             print(f"   Items: {len(inventory)}")
             for item in inventory[:5]:  # Show first 5 items
-                print(f"   Slot {item['slot']}: Item ID {item['item_id']}, "
-                      f"Quantity {item['quantity']}")
+                print(
+                    f"   Slot {item['slot']}: Item ID {item['item_id']}, "
+                    f"Quantity {item['quantity']}"
+                )
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test menu state
         print("\n7. Menu State:")
         try:
@@ -104,18 +111,20 @@ def test_memory_reader(rom_path: str):
             print(f"   Text Box Open: {menu['text_box_open']}")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test battle state
         print("\n8. Battle State:")
         try:
             battle = memory_reader.read_battle_state()
             print(f"   In Battle: {battle['in_battle']}")
-            print(f"   Battle Type: {battle['battle_type']} ({battle['battle_type_name']})")
-            if battle['in_battle']:
+            print(
+                f"   Battle Type: {battle['battle_type']} ({battle['battle_type_name']})"
+            )
+            if battle["in_battle"]:
                 print(f"   Wild Pokemon Species: {battle['wild_pokemon_species']}")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test full game state
         print("\n9. Full Game State:")
         try:
@@ -126,7 +135,7 @@ def test_memory_reader(rom_path: str):
             print(f"   Party Size: {len(full_state.get('party', []))}")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         # Test raw memory access
         print("\n10. Raw Memory Access Test:")
         try:
@@ -145,17 +154,18 @@ def test_memory_reader(rom_path: str):
                     print(f"   {name} (0x{addr:04X}): Error - {e}")
         except Exception as e:
             print(f"   Error: {e}")
-        
+
         print("\n" + "=" * 60)
         print("Test Complete")
         print("=" * 60)
-        
+
         pyboy.stop()
         return True
-        
+
     except Exception as e:
         print(f"\nError during testing: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -165,9 +175,11 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python test_memory_reader.py <rom_path>")
         print("\nExample:")
-        print('  python test_memory_reader.py "Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb"')
+        print(
+            '  python test_memory_reader.py "Pokemon - Red Version (USA, Europe) (SGB Enhanced).gb"'
+        )
         sys.exit(1)
-    
+
     rom_path = sys.argv[1]
     success = test_memory_reader(rom_path)
     sys.exit(0 if success else 1)
@@ -175,4 +187,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
