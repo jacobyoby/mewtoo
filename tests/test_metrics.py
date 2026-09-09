@@ -106,7 +106,7 @@ class TestLLMMetrics:
         stats = metrics.get_stats()
         assert stats["total_calls"] == 3
         assert stats["total_tokens"] == 45
-        assert stats["latency"]["avg"] == 0.15
+        assert stats["latency"]["avg"] == pytest.approx(0.15)
         assert stats["success_rate"] == 100.0
 
 
