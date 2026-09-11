@@ -125,3 +125,9 @@ validation_screenshots/
 *.sqlite
 *.sqlite3
 
+
+# Claude Code: track the shared settings and hooks; personal state stays local.
+!.claude/
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
