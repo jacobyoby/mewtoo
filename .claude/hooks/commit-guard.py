@@ -16,6 +16,7 @@ Wire it in .claude/settings.json:
   {"hooks": {"PreToolUse": [{"matcher": "Bash",
      "hooks": [{"type": "command", "command": "python3 <path>/guard.py"}]}]}}
 """
+
 import json
 import re
 import shlex
@@ -79,8 +80,18 @@ def check(words):
     if not words or words[0] != "git":
         # Tampering with the hook file itself.
         joined = " ".join(words)
-        if re.search(r"hooks/commit-msg|\.githooks/commit-msg", joined) and words[0] in (
-            "rm", "mv", "cp", "chmod", "truncate", "tee", "sed", "install", "ln",
+        if re.search(r"hooks/commit-msg|\.githooks/commit-msg", joined) and words[
+            0
+        ] in (
+            "rm",
+            "mv",
+            "cp",
+            "chmod",
+            "truncate",
+            "tee",
+            "sed",
+            "install",
+            "ln",
         ):
             deny("refusing to modify or remove the commit-msg hook")
         return
@@ -89,14 +100,21 @@ def check(words):
     opts, i = [], 1
     while i < len(words) and words[i].startswith("-"):
         opts.append(words[i])
-        if words[i] in ("-c", "-C", "--git-dir", "--work-tree", "--config-env", "--exec-path"):
+        if words[i] in (
+            "-c",
+            "-C",
+            "--git-dir",
+            "--work-tree",
+            "--config-env",
+            "--exec-path",
+        ):
             if i + 1 < len(words):
                 opts.append(words[i + 1])
             i += 1
         i += 1
     if i >= len(words):
         return
-    sub, args = words[i], words[i + 1:]
+    sub, args = words[i], words[i + 1 :]
 
     if sub == "config" and any("hookspath" in a.lower() for a in args):
         deny("changing core.hooksPath would disable the commit-msg hook")
@@ -114,7 +132,14 @@ def check(words):
             deny("overriding core.hooksPath on the command line skips the hook")
     if any(o == "--git-dir" or o.startswith("--git-dir=") for o in opts):
         deny("relocating --git-dir for a commit bypasses the repository hooks")
-    for k in ("HOME", "GIT_DIR", "GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM", "GIT_CONFIG_PARAMETERS", "XDG_CONFIG_HOME"):
+    for k in (
+        "HOME",
+        "GIT_DIR",
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_CONFIG_PARAMETERS",
+        "XDG_CONFIG_HOME",
+    ):
         if k in env:
             deny(f"setting {k} for a commit can relocate the hooks; commit without it")
 
