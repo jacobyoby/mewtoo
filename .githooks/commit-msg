@@ -1,0 +1,50 @@
+#!/bin/sh
+# commit-msg hook: strip Claude Code attribution from the commit message.
+#
+# Removes, wherever they appear in the message:
+#   Co-Authored-By: Claude ... <...@anthropic.com>
+#   Claude-Session: https://claude.ai/code/session_...
+#   Generated with [Claude Code](...)   (with or without the robot emoji)
+#   bare https://claude.ai/code/session_... lines
+#
+# Ordinary Co-Authored-By trailers for human collaborators are kept. A message
+# with nothing to strip is left byte-identical. Trailing blank lines left
+# behind by the removal are trimmed; git's own cleanup collapses the rest.
+#
+# Installed by tools/commit-cleaner/install.sh (see README.md). Safe under
+# `set -e`: every failure path exits 0 with the original message intact, so
+# the hook can never block a commit.
+
+msg_file="$1"
+[ -n "$msg_file" ] && [ -f "$msg_file" ] || exit 0
+
+tmp="${msg_file}.commit-cleaner.$$"
+trap 'rm -f "$tmp"' EXIT
+
+awk '
+function is_attribution(line) {
+    l = tolower(line)
+    if (l ~ /^co-authored-by:[[:space:]]*.*<[^>]*@anthropic\.com>[[:space:]]*$/) return 1
+    if (l ~ /^co-authored-by:[[:space:]]*claude([[:space:]]|$)/)             return 1
+    if (l ~ /^claude-session:/)                                              return 1
+    if (l ~ /generated with \[claude code\]\(/)                              return 1
+    if (l ~ /^[[:space:]]*https:\/\/claude\.ai\/code\/session_[a-z0-9_-]+[[:space:]]*$/) return 1
+    return 0
+}
+{
+    if (is_attribution($0)) { removed = 1; next }
+    lines[++n] = $0
+}
+END {
+    if (!removed) exit 3            # nothing to do: caller keeps the file as-is
+    while (n > 0 && lines[n] ~ /^[[:space:]]*$/) n--
+    for (i = 1; i <= n; i++) print lines[i]
+}
+' "$msg_file" > "$tmp"
+status=$?
+
+case "$status" in
+    0) cat "$tmp" > "$msg_file" ;;   # rewrite in place, preserving the inode
+    *) : ;;                          # 3 = unchanged; anything else = leave alone
+esac
+exit 0
