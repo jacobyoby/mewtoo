@@ -1,11 +1,15 @@
 {
+  "attribution": {
+    "commit": "",
+    "sessionUrl": false
+  },
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "git config core.hooksPath .githooks"
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && git config core.hooksPath .githooks"
           }
         ]
       }
