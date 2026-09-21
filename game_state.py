@@ -12,6 +12,7 @@ from PIL import Image
 from pyboy import PyBoy
 
 from memory_reader import MemoryReader, get_map_name
+from navigation import downsample_collision
 from ocr_enhancer import OCREnhancer
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,32 @@ class GameState:
                 self.memory_reader = None
         else:
             self.memory_reader = None
+
+    def read_walkable_grid(self) -> list[list[int]] | None:
+        """9 by 10 block grid of the visible map. 1 is walkable.
+
+        Uses PyBoy's Pokemon collision map (tileset passable list plus the
+        screen tilemap). Returns None when that wrapper is not available,
+        so callers can fall back to the coarser direction heuristic.
+        """
+        collision_fn = getattr(self.pyboy, "game_area_collision", None)
+        if collision_fn is None:
+            return None
+        try:
+            return downsample_collision(collision_fn())
+        except Exception:
+            logger.debug("Walkability grid unavailable", exc_info=True)
+            return None
+
+    def read_map_dimensions(self) -> tuple[int, int] | None:
+        """Current map size in blocks, or None if memory is not ready."""
+        if not self.memory_enabled or not self.memory_reader:
+            return None
+        try:
+            return self.memory_reader.read_map_dimensions()
+        except Exception:
+            logger.debug("Map dimensions unavailable", exc_info=True)
+            return None
 
     def get_screen_image(self) -> np.ndarray:
         """Get current screen as numpy array."""

@@ -317,6 +317,28 @@ class AgentStrategy:
 
         return None
 
+    def movement_target(
+        self, goal: Goal, game_state: str, memory_data: dict | None = None
+    ) -> tuple[int, int] | None:
+        """Map coordinate the pathfinder should walk toward, if any.
+
+        Only overworld travel has a coordinate. Dialog, menus, and the
+        doorway-clear maneuver stay on ``suggest_action_for_goal``.
+        """
+        if game_state != "overworld" or not memory_data or self._exit_maneuver_steps > 0:
+            return None
+        map_id = (memory_data.get("current_map") or {}).get("map_id")
+        pos = memory_data.get("player_position") or (0, 0)
+        x = pos[0] if len(pos) >= 1 else 0
+
+        if goal.name == "get_starter" and map_id == 0x00:
+            return self.OAK_TRIGGER
+        if goal.name == "reach_viridian" and map_id == 0x00:
+            return self.OAK_TRIGGER
+        if goal.name == "reach_viridian" and map_id == ROUTE_1:
+            return (x, 0)
+        return None
+
     def add_event(self, event: GameEvent):
         """Add a game event to history.
 

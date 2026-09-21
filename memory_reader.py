@@ -20,6 +20,9 @@ class MemoryAddresses:
     PLAYER_Y = 0xD361  # Player Y coordinate on current map
     CURRENT_MAP = 0xD35E  # Current map ID
     MAP_HEADER_BANK = 0xD35F  # Map header bank
+    # pret wram: wCurMapHeight / wCurMapWidth, in 2x2 blocks
+    MAP_HEIGHT = 0xD368
+    MAP_WIDTH = 0xD369
 
     # Player info
     PLAYER_NAME_START = 0xD158  # Player name (11 bytes, terminated by 0x50)
@@ -164,6 +167,18 @@ class MemoryReader:
             "map_id": map_id,
             "map_bank": map_bank,
         }
+
+    def read_map_dimensions(self) -> tuple[int, int] | None:
+        """Read the current map size in walkable blocks.
+
+        Returns:
+            ``(width, height)``, or None when the header has not loaded.
+        """
+        width = self.read_byte(MemoryAddresses.MAP_WIDTH)
+        height = self.read_byte(MemoryAddresses.MAP_HEIGHT)
+        if width == 0 or height == 0:
+            return None
+        return width, height
 
     def read_player_name(self) -> str:
         """Read player name from memory.
