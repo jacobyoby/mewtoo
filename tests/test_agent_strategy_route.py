@@ -92,6 +92,23 @@ class TestRoutePolicyWins:
         agent.strategy.mark_goal_complete("start_game")
         return agent
 
+    def test_path_crosses_at_the_gap_even_if_up_is_globally_blocked(
+        self, mock_llm_provider, mock_pyboy
+    ):
+        from unittest.mock import Mock
+
+        agent = self._agent(mock_llm_provider, mock_pyboy, 0x00, (2, 4))
+        grid = [[1 for _ in range(10)] for _ in range(9)]
+        for col in range(10):
+            grid[3][col] = 0
+        grid[3][6] = 1
+        agent.game_state.read_walkable_grid = Mock(return_value=grid)
+        agent.game_state.read_map_dimensions = Mock(return_value=(10, 9))
+        # The old global set would forbid UP everywhere after one bump.
+        # The path still steps toward the gap column.
+        agent.blocked_directions.add("UP")
+        assert agent.get_action() == "RIGHT"
+
     def test_pallet_town_goes_north(self, mock_llm_provider, mock_pyboy):
         agent = self._agent(mock_llm_provider, mock_pyboy, 0x00, (10, 10))
         assert agent.get_action() == "UP"

@@ -17,6 +17,7 @@ from game_state import GameState
 from llm_optimizer import ActionCache, PromptOptimizer, RepetitionDetector
 from llm_provider import LLMProvider
 from metrics import MetricsCollector
+from navigation import next_step
 
 logger = logging.getLogger(__name__)
 
@@ -638,6 +639,10 @@ No explanations. Just the action."""
         goal = self.strategy.get_current_goal()
         if goal is None:
             return None
+        path_step = self._path_step(obs, goal)
+        if path_step:
+            self._edge_scan_steps = 0
+            return path_step
         action = self.strategy.suggest_action_for_goal(
             goal, obs.game_state, self._memory_data(obs.game_info)
         )
@@ -679,6 +684,29 @@ No explanations. Just the action."""
             return scan
         self._edge_scan_steps = 0
         return action
+
+    def _path_step(self, obs: "Observation", goal) -> str | None:
+        """One walkable step toward the goal, using the visible collision grid.
+
+        ``blocked_directions`` is global, so a fence tile used to forbid UP
+        on every column. The grid is per block: the gap column stays open.
+        """
+        memory = self._memory_data(obs.game_info)
+        target = self.strategy.movement_target(goal, obs.game_state, memory)
+        if target is None:
+            return None
+        grid = self.game_state.read_walkable_grid()
+        dimensions = self.game_state.read_map_dimensions()
+        pos = memory.get("player_position")
+        if not grid or not dimensions or not pos or len(pos) < 2:
+            return None
+        step = next_step(grid, (pos[0], pos[1]), target, dimensions[0], dimensions[1])
+        if step:
+            logger.info(
+                f"[PATH] Step {obs.step_count}: {step} toward {target} "
+                f"from {pos}"
+            )
+        return step
 
     def _first_action_policy(self, obs: "Observation") -> str | None:
         """Cheap heuristics for the very first action (avoids an LLM call)."""
