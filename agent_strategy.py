@@ -4,6 +4,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 
+from memory_reader import ROUTE_1
+
 
 class GamePhase(Enum):
     """Different phases of the game."""
@@ -249,7 +251,7 @@ class AgentStrategy:
                     # early is a dead end -- runs reached the table row and
                     # stalled there. Leave and go north until Route 1 has
                     # been seen; only then approach the table.
-                    if 0x0B not in self.visited_maps:
+                    if ROUTE_1 not in self.visited_maps:
                         return "DOWN"  # Exit the lab (door is at the south)
                     if y > 4:
                         return "UP"
@@ -272,7 +274,7 @@ class AgentStrategy:
                                 return "RIGHT"  # Try different direction
                             return "UP"
                         return "UP"
-                    elif map_id == 0x0B:  # Route 1
+                    elif map_id == ROUTE_1:  # Route 1
                         # Continue north toward Viridian
                         if pos and len(pos) >= 2:
                             if self.is_at_boundary(pos, "UP", map_id):
@@ -506,7 +508,7 @@ class AgentStrategy:
         if "explore_route_1" not in self.completed_goals:
             map_info = memory_data.get("current_map", {})
             map_id = map_info.get("map_id", 0)
-            if map_id == 0x0B:  # Route 1
+            if map_id == ROUTE_1:  # Route 1
                 self.mark_goal_complete("explore_route_1")
 
     def get_progress_summary(self) -> dict:

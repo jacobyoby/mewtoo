@@ -149,12 +149,6 @@ class TestMemoryReader:
 
         mock_pyboy.memory.__getitem__ = Mock(side_effect=getitem)
 
-        # Level is at PARTY_POKEMON_START + POKEMON_LEVEL offset
-        # PARTY_POKEMON_START = 0xD16B, POKEMON_LEVEL = 33
-        # So level address = 0xD16B + 33 = 0xD18C (not 0xD19C in sample data)
-        # Update sample data to have level at correct address
-        sample_memory_data[0xD18C] = 50  # Level at correct offset (0xD16B + 33)
-
         reader = MemoryReader(mock_pyboy)
         party = reader.read_pokemon_party()
 
@@ -162,9 +156,13 @@ class TestMemoryReader:
         assert party[0]["species"] == 25
         assert party[0]["level"] == 50
         assert party[0]["hp_current"] == 800
+        # Max HP is party_struct offset 34, not the box-level byte at offset 3.
         assert party[0]["hp_max"] == 800
+        assert party[0]["status"] == 0
         assert party[0]["hp_percent"] == 100.0
         assert not party[0]["fainted"]
+        assert MemoryAddresses.POKEMON_HP_MAX == 34
+        assert MemoryAddresses.POKEMON_STATUS == 4
 
     def test_read_pokemon_party_empty(self, mock_pyboy):
         """Test reading empty party."""
@@ -308,7 +306,10 @@ class TestMapNames:
         """Test getting map name from ID."""
         assert get_map_name(0x00) == "Pallet Town"
         assert get_map_name(0x01) == "Viridian City"
-        assert get_map_name(0x0B) == "Route 1"
+        # pret map_constants: 0x0B is unused, Route 1 is 0x0C, Route 25 is 0x24
+        assert get_map_name(0x0C) == "Route 1"
+        assert get_map_name(0x24) == "Route 25"
+        assert get_map_name(0x0B) == "Map 0B"
 
     def test_get_map_name_unknown(self):
         """Test getting name for unknown map ID."""

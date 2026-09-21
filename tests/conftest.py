@@ -74,11 +74,13 @@ def sample_memory_data():
         0xD163: 1,  # 1 Pokemon in party
         # First Pokemon data (simplified)
         0xD16B: 25,  # Species (Pikachu)
-        0xD16C: 0x20,  # HP current low byte
+        0xD16C: 0x20,  # HP current low byte (offset 1)
         0xD16D: 0x03,  # HP current high byte (0x0320 = 800)
-        0xD16E: 0x20,  # HP max low byte
-        0xD16F: 0x03,  # HP max high byte (0x0320 = 800)
-        0xD19C: 50,  # Level (0xD16B + 33 = 0xD19C)
+        0xD16E: 0x00,  # Box level (offset 3), not max HP
+        0xD16F: 0x00,  # Status (offset 4)
+        0xD18C: 50,  # Level (0xD16B + 33)
+        0xD18D: 0x20,  # Max HP low byte (offset 34)
+        0xD18E: 0x03,  # Max HP high byte (0x0320 = 800)
         # Inventory
         0xD31D: 2,  # 2 items
         0xD31E: 1,  # Item 1 ID

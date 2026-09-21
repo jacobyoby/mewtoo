@@ -1,6 +1,7 @@
 """Route-to-Oak direction tests for the get_starter goal."""
 
 from agent_strategy import AgentStrategy
+from memory_reader import ROUTE_1
 
 
 def suggest(map_id, pos, visited=()):
@@ -32,9 +33,9 @@ def test_pallet_town_heads_north():
 
 
 def test_oaks_lab_heads_to_ball_table_then_interacts():
-    # Only after Route 1 (0x0B) has been seen — that is when Oak's cutscene
+    # Only after Route 1 (0x0C) has been seen — that is when Oak's cutscene
     # has fired and the balls become takeable.
-    r1 = (0x0B,)
+    r1 = (ROUTE_1,)
     assert suggest(0x28, (4, 11), r1) == "UP"  # deep in the lab: go up
     assert suggest(0x28, (4, 4), r1) == "RIGHT"  # at table row: go right
     assert suggest(0x28, (7, 4), r1) == "A"  # at the table: interact
@@ -50,7 +51,7 @@ def test_lab_is_a_dead_end_before_the_oak_cutscene():
 
 def test_lab_approaches_table_after_route_1_seen():
     s = AgentStrategy()
-    s.visited_maps.add(0x0B)  # Route 1 visited -> Oak cutscene has fired
+    s.visited_maps.add(ROUTE_1)  # Route 1 visited -> Oak cutscene has fired
     goal = next(g for g in s.goals if g.name == "get_starter")
     md = {"current_map": {"map_id": 0x28}, "player_position": (4, 11), "party": []}
     assert s.suggest_action_for_goal(goal, "overworld", md) == "UP"
@@ -165,12 +166,12 @@ def test_step_updates_map_tracking(mock_llm_provider, mock_pyboy):
             "game_state": "overworld",
             "party": [],
             "player_position": (5, 6),
-            "current_map": {"map_id": 0x0B, "map_name": "Route 1"},
+            "current_map": {"map_id": ROUTE_1, "map_name": "Route 1"},
         }
     )
     gs.execute_action = Mock(return_value=True)
     agent.step()
-    assert 0x0B in agent.strategy.visited_maps
+    assert ROUTE_1 in agent.strategy.visited_maps
 
 
 class TestEdgeScan:

@@ -3,7 +3,7 @@
 from unittest.mock import Mock
 
 from game_state import GameState
-from pokemon_agent import PokemonAgent
+from pokemon_agent import Observation, PokemonAgent
 
 
 class TestPokemonAgent:
@@ -406,3 +406,85 @@ class TestDialogLoop:
         )
         agent.get_action()
         assert agent._dialog_loop_steps == 1
+
+
+class TestPolicyChainNotSkipped:
+    """step() must run early-game and menu policies, not a raw strategy button."""
+
+    def test_step_uses_naming_script(self, mock_llm_provider, mock_pyboy):
+        game_state = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, game_state)
+        game_state.get_game_info = Mock(
+            return_value={
+                "screen_text": "NEW NAME RED ASH JACK",
+                "frame_count": 100,
+                "game_state": "menu",
+                "party": [],
+                "player_position": (0, 0),
+            }
+        )
+        game_state.execute_action = Mock(return_value=True)
+
+        result = agent.step()
+
+        # Strategy's start_game menu suggestion is A. The naming script is DOWN.
+        assert result["action"] == "DOWN"
+
+    def test_step_closes_lingering_menu(self, mock_llm_provider, mock_pyboy):
+        game_state = GameState(mock_pyboy, ocr_enabled=False)
+        agent = PokemonAgent(mock_llm_provider, game_state)
+        game_state.get_game_info = Mock(
+            return_value={
+                "screen_text": "",
+                "frame_count": 100,
+                "game_state": "menu",
+                "party": [{"species": 1, "level": 6}],
+                "player_position": (5, 5),
+            }
+        )
+        game_state.execute_action = Mock(return_value=True)
+        agent.new_game_started = True
+        agent.character_creation_steps = 60
+        agent.step_count = 200
+
+        actions = [agent.step()["action"] for _ in range(3)]
+
+        # Strategy would keep returning DOWN. Menu escape presses B.
+        assert actions[-1] == "B"
+
+
+class TestParseLlmResponse:
+    """Button tokens are whole words, and WAIT is capped."""
+
+    def _agent(self, mock_llm_provider, mock_pyboy):
+        game_state = GameState(mock_pyboy, ocr_enabled=False)
+        return PokemonAgent(mock_llm_provider, game_state)
+
+    def _obs(self) -> Observation:
+        return Observation(
+            game_info={"frame_count": 1},
+            screen_text="",
+            game_state="title_screen",
+            step_count=10,
+        )
+
+    def test_start_is_not_a(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        obs = self._obs()
+        assert agent._parse_llm_response(obs, "START") == "START"
+        assert agent._parse_llm_response(obs, "PRESS START") == "START"
+        assert agent._parse_llm_response(obs, "GO EAST") == "START"
+
+    def test_prose_without_a_button_falls_back(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        agent.action_history = ["A", "A", "A", "A", "A"]
+        assert agent._parse_llm_response(self._obs(), "GO EAST") == "A"
+
+    def test_wait_is_capped(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        assert agent._parse_llm_response(self._obs(), "WAIT 999999") == "WAIT 30"
+        assert agent._parse_llm_response(self._obs(), "WAIT") == "WAIT 10"
+
+    def test_comma_separated_keeps_two_buttons(self, mock_llm_provider, mock_pyboy):
+        agent = self._agent(mock_llm_provider, mock_pyboy)
+        assert agent._parse_llm_response(self._obs(), "UP, DOWN, LEFT") == "UP, DOWN"
