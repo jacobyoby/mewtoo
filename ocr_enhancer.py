@@ -256,24 +256,23 @@ class OCREnhancer:
                 reverse=True,
             )
 
-        # Extract text from each region
-        texts = []
+        # Keep each string paired with the region that produced it. Indexing
+        # the original region list with the filtered text list mis-labels
+        # dialog after a short OCR result is dropped.
+        extracted: list[tuple[dict, str]] = []
         for region in regions:
             text = self.extract_text_from_region(image, region)
             if text and len(text.strip()) > 2:
-                texts.append(text)
+                extracted.append((region, text))
 
-        # Combine texts, prioritizing dialog
-        if texts:
-            # If we have dialog text, use it primarily
-            dialog_texts = [
-                t
-                for i, t in enumerate(texts)
-                if regions[i]["type"] == TextRegion.DIALOG_BOX
-            ]
-            if dialog_texts:
-                return " ".join(dialog_texts)
-            else:
-                return " ".join(texts)
+        if not extracted:
+            return ""
 
-        return ""
+        dialog_texts = [
+            text
+            for region, text in extracted
+            if region["type"] == TextRegion.DIALOG_BOX
+        ]
+        if dialog_texts:
+            return " ".join(dialog_texts)
+        return " ".join(text for _, text in extracted)

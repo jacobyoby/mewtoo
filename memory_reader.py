@@ -30,15 +30,17 @@ class MemoryAddresses:
     PARTY_POKEMON_START = 0xD16B  # First Pokemon data structure
     POKEMON_DATA_SIZE = 44  # Size of each Pokemon data structure
 
-    # Pokemon data structure offsets (relative to party Pokemon start)
+    # Pokemon data structure offsets (relative to party Pokemon start).
+    # pret pokered party_struct: species, current HP, box level, status,
+    # types, ... level at 33, max HP at 34. Offset 3 is box level, not max HP.
     POKEMON_SPECIES = 0  # Pokemon species ID
     POKEMON_HP_CURRENT = 1  # Current HP (2 bytes, little-endian)
-    POKEMON_HP_MAX = 3  # Max HP (2 bytes, little-endian)
-    POKEMON_STATUS = 5  # Status condition (0x00 = normal)
-    POKEMON_TYPE1 = 6
-    POKEMON_TYPE2 = 7
+    POKEMON_STATUS = 4  # Status condition (0x00 = normal)
+    POKEMON_TYPE1 = 5
+    POKEMON_TYPE2 = 6
+    POKEMON_EXP = 14  # Experience (3 bytes)
     POKEMON_LEVEL = 33  # Level
-    POKEMON_EXP = 34  # Experience (3 bytes)
+    POKEMON_HP_MAX = 34  # Max HP (2 bytes, little-endian)
 
     # Inventory
     INVENTORY_COUNT = 0xD31D  # Number of items in inventory
@@ -386,32 +388,37 @@ MAP_NAMES = {
     0x08: "Cinnabar Island",
     0x09: "Indigo Plateau",
     0x0A: "Saffron City",
-    0x0B: "Route 1",
-    0x0C: "Route 2",
-    0x0D: "Route 3",
-    0x0E: "Route 4",
-    0x0F: "Route 5",
-    0x10: "Route 6",
-    0x11: "Route 7",
-    0x12: "Route 8",
-    0x13: "Route 9",
-    0x14: "Route 10",
-    0x15: "Route 11",
-    0x16: "Route 12",
-    0x17: "Route 13",
-    0x18: "Route 14",
-    0x19: "Route 15",
-    0x1A: "Route 16",
-    0x1B: "Route 17",
-    0x1C: "Route 18",
-    0x1D: "Route 19",
-    0x1E: "Route 20",
-    0x1F: "Route 21",
-    0x20: "Route 22",
-    0x21: "Route 23",
-    0x22: "Route 24",
-    0x23: "Route 25",
+    # 0x0B is UNUSED_MAP_0B in pret pokered map_constants.asm.
+    # Route 1 is 0x0C; Route 25 is 0x24.
+    0x0C: "Route 1",
+    0x0D: "Route 2",
+    0x0E: "Route 3",
+    0x0F: "Route 4",
+    0x10: "Route 5",
+    0x11: "Route 6",
+    0x12: "Route 7",
+    0x13: "Route 8",
+    0x14: "Route 9",
+    0x15: "Route 10",
+    0x16: "Route 11",
+    0x17: "Route 12",
+    0x18: "Route 13",
+    0x19: "Route 14",
+    0x1A: "Route 15",
+    0x1B: "Route 16",
+    0x1C: "Route 17",
+    0x1D: "Route 18",
+    0x1E: "Route 19",
+    0x1F: "Route 20",
+    0x20: "Route 21",
+    0x21: "Route 22",
+    0x22: "Route 23",
+    0x23: "Route 24",
+    0x24: "Route 25",
 }
+
+# pret pokered: Route 1 is map 0x0C (0x0B is unused).
+ROUTE_1 = 0x0C
 
 
 def get_map_name(map_id: int) -> str:

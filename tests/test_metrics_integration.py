@@ -142,6 +142,40 @@ class TestMetricsIntegration:
         assert llm_stats["total_calls"] >= 0
         assert llm_stats["latency"]["avg"] >= 0
 
+    def test_llm_call_recorded_once(self, mock_pyboy):
+        """One generate() records one LLM call, not one in the provider and one in the agent."""
+        metrics = MetricsCollector()
+        with patch.object(
+            OllamaProvider, "_list_available_models", return_value=["llama3.2"]
+        ):
+            llm_provider = OllamaProvider(model="llama3.2", metrics=metrics)
+        llm_provider.client = Mock()
+        llm_provider.client.chat = Mock(
+            return_value={"message": {"content": "UP"}, "eval_count": 5}
+        )
+
+        game_state = GameState(mock_pyboy, ocr_enabled=False, metrics=metrics)
+        agent = PokemonAgent(llm_provider, game_state, metrics=metrics)
+        game_state.get_game_info = Mock(
+            return_value={
+                "screen_text": "open grass",
+                "frame_count": 40,
+                "game_state": "overworld",
+                "party": [{"species": 1, "level": 6}],
+                "player_position": (3, 3),
+                "current_map": {},
+            }
+        )
+        game_state.execute_action = Mock(return_value=True)
+        agent.step_count = 10
+        agent.new_game_started = True
+        agent._creation_over = True
+
+        agent.get_action()
+
+        assert metrics.get_all_stats()["llm"]["total_calls"] == 1
+        assert llm_provider.client.chat.call_count == 1
+
     def test_metrics_summary_generation(self):
         """Test that metrics summary can be generated."""
         metrics = MetricsCollector()

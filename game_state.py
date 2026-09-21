@@ -706,8 +706,10 @@ class GameState:
             try:
                 # WAIT N is in ticks of 15 frames (~0.25s of game time each);
                 # raw single-frame waits were far too short to let loading
-                # screens and transitions play out
+                # screens and transitions play out. Cap N so a model reply
+                # of WAIT 999999 cannot stall the emulator.
                 units = int(action.split()[1]) if len(action.split()) > 1 else 10
+                units = max(0, min(units, 30))
                 for _ in range(units * 15):
                     self.pyboy.tick()
                 return True

@@ -3,9 +3,9 @@
 Version: 0.0.7
 """
 
-import contextlib
 import logging
 import random
+import re
 import time
 from collections import Counter, deque
 from dataclasses import dataclass
@@ -19,6 +19,13 @@ from llm_provider import LLMProvider
 from metrics import MetricsCollector
 
 logger = logging.getLogger(__name__)
+
+# Whole-word button tokens. Exact token match keeps START from collapsing
+# into A ("A" is a substring of "START") and ignores prose like "GO EAST".
+_BUTTON_TOKENS = frozenset({"START", "SELECT", "RIGHT", "LEFT", "DOWN", "UP", "A", "B"})
+# WAIT N is applied as N * 15 frames. Cap N so a model reply cannot stall the emulator.
+_MAX_WAIT_UNITS = 30
+_BUTTON_WORD = re.compile(r"[A-Z]+")
 
 
 @dataclass
@@ -864,7 +871,6 @@ No explanations. Just the action."""
 
     def _llm_policy(self, obs: "Observation") -> str:
         """Ask the LLM for an action; falls back to heuristics on failure."""
-        llm_start_time = None
         try:
             prompt = self.get_prompt()
 
@@ -877,16 +883,11 @@ No explanations. Just the action."""
             )
             llm_duration = time.time() - llm_start_time
 
-            # Record LLM metrics
+            # Call counts live on the provider (it has token and error detail).
+            # Recording again here doubled total_calls and distorted latency.
             if self.metrics:
                 self.metrics.performance.record_llm_time(llm_duration)
-                self.metrics.llm.record_call(llm_duration)
         except Exception as e:
-            llm_duration = (
-                time.time() - llm_start_time if llm_start_time is not None else 0.0
-            )
-            if self.metrics:
-                self.metrics.llm.record_call(llm_duration, error=True)
             logger.warning(f"LLM call failed: {e}")
             logger.warning("Using fallback action based on game state")
             return self._llm_fallback(obs)
@@ -913,50 +914,56 @@ No explanations. Just the action."""
         # during character creation)
         return "A"
 
+    def _match_button_token(self, text: str) -> str | None:
+        """First whole-word button in text.
+
+        Substring matching treated START as A because ``"A" in "START"``.
+        Tokens are matched exactly, so START and SELECT stay intact and
+        prose like "GO EAST" does not become A.
+        """
+        for token in _BUTTON_WORD.findall(text):
+            if token in _BUTTON_TOKENS:
+                return token
+        return None
+
+    def _match_wait_units(self, text: str) -> int | None:
+        """WAIT count from a reply, clamped to ``_MAX_WAIT_UNITS``."""
+        match = re.search(r"\bWAIT(?:\s+(\d+))?\b", text)
+        if match is None:
+            return None
+        if match.group(1) is None:
+            return 10
+        return min(int(match.group(1)), _MAX_WAIT_UNITS)
+
+    def _block_creation_b(self, obs: "Observation", button: str) -> str:
+        """B cancels a new game; substitute A while naming is in progress."""
+        if button == "B" and self._in_creation_window():
+            logger.info(
+                f"[CHARACTER_CREATION] Blocked B button, using A instead (step {obs.step_count})"
+            )
+            return "A"
+        return button
+
     def _parse_llm_response(self, obs: "Observation", response: str) -> str:
         """Extract a valid button action from the LLM's raw response."""
         response_clean = response.strip().upper()
 
-        # CRITICAL: Final check - prevent B during character creation
-        if self._in_creation_window() and (
-            response_clean == "B" or response_clean.startswith("B")
-        ):
-            logger.info(
-                f"[CHARACTER_CREATION] Blocked B press from LLM, using A instead (step {obs.step_count})"
-            )
-            response_clean = "A"
+        if "," in response_clean:
+            buttons = []
+            for part in response_clean.split(","):
+                button = self._match_button_token(part)
+                if button is not None:
+                    buttons.append(self._block_creation_b(obs, button))
+            if buttons:
+                return self._cache_action(obs, ", ".join(buttons[:2]))
+        else:
+            button = self._match_button_token(response_clean)
+            if button is not None:
+                return self._cache_action(obs, self._block_creation_b(obs, button))
 
-        valid_buttons = ["UP", "DOWN", "LEFT", "RIGHT", "A", "B", "SELECT", "START"]
-
-        # Check for direct match first (most common case)
-        for button in valid_buttons:
-            if button in response_clean:
-                # CRITICAL: Block B during character creation even if found in response
-                if button == "B" and self._in_creation_window():
-                    logger.info(
-                        f"[CHARACTER_CREATION] Blocked B button, using A instead (step {obs.step_count})"
-                    )
-                    return self._cache_action(obs, "A")
-                # Extract the button
-                if "," in response_clean:
-                    # Handle comma-separated
-                    parts = [p.strip() for p in response_clean.split(",")]
-                    valid_parts = [p for p in parts if p in valid_buttons]
-                    action = (
-                        ", ".join(valid_parts[:2]) if valid_parts else button
-                    )  # Max 2 actions
-                else:
-                    action = button
-                return self._cache_action(obs, action)
-
-        # Check for WAIT command
-        if "WAIT" in response_clean:
-            parts = response_clean.split()
-            action = "WAIT 10"
-            if len(parts) >= 2:
-                with contextlib.suppress(ValueError):
-                    action = f"WAIT {int(parts[1])}"
-            return self._cache_action(obs, action)
+        wait_units = self._match_wait_units(response_clean)
+        if wait_units is not None:
+            return self._cache_action(obs, f"WAIT {wait_units}")
 
         # Fallback: START while still orienting, A afterwards
         action = "START" if len(self.action_history) < 5 else "A"
@@ -1008,29 +1015,12 @@ No explanations. Just the action."""
                 completed_goals=completed,
             )
 
-        # Check if strategy suggests an action
+        # Do not apply a strategy suggestion here. suggest_action_for_goal
+        # returns raw A/DOWN/START for menus and dialog, and taking it
+        # skipped the policy chain (naming scripts, menu escape, dialog
+        # loops) on most steps. Overworld routing still runs inside
+        # get_action() via _route_policy.
         action = None
-        if self.strategy:
-            current_goal = self.strategy.get_current_goal()
-            if current_goal:
-                memory_data = {
-                    "player_position": pre_state.get("player_position"),
-                    "current_map": pre_state.get("current_map", {}),
-                    "party": pre_state.get("party", []),
-                    "health": pre_state.get("health", {}),
-                }
-                suggested_action = self.strategy.suggest_action_for_goal(
-                    current_goal, pre_game_state, memory_data
-                )
-                # Use strategy suggestion if available and not in pure exploration mode
-                # Calculate action diversity for adaptive exploration
-                action_diversity = (
-                    self.calculate_action_entropy(window=15) / 3.0
-                )  # Normalize to 0-1 range
-                if suggested_action and not self.strategy.should_explore(
-                    self.stuck_count, action_diversity
-                ):
-                    action = suggested_action
 
         # Force exploration when stuck (before getting action).
         # Overworld only: random arrows inside a menu, dialog, or transition

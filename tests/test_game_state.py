@@ -145,6 +145,15 @@ class TestGameState:
         assert result is True
         assert mock_pyboy.tick.call_count == 5 * 15  # WAIT units are 15 frames each
 
+    def test_execute_action_wait_is_capped(self, mock_pyboy):
+        """Huge WAIT counts must not stall the emulator."""
+        game_state = GameState(mock_pyboy, ocr_enabled=False)
+
+        result = game_state.execute_action("WAIT 999999")
+
+        assert result is True
+        assert mock_pyboy.tick.call_count == 30 * 15
+
     def test_execute_action_invalid(self, mock_pyboy):
         """Test executing invalid action."""
         game_state = GameState(mock_pyboy, ocr_enabled=False)
